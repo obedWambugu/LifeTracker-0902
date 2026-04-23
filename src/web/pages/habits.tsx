@@ -23,6 +23,8 @@ export default function HabitsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState({ name: '', description: '', category: 'Health', frequency: 'daily' });
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -116,6 +118,33 @@ export default function HabitsPage() {
     }
   };
 
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === habits.length) setSelected(new Set());
+    else setSelected(new Set(habits.map(h => h.id)));
+  };
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} habit${selected.size > 1 ? 's' : ''}?`)) return;
+    try {
+      await api.post('/habits/bulk-delete', { ids: Array.from(selected) });
+      toast.success(`${selected.size} habit${selected.size > 1 ? 's' : ''} deleted`);
+      setSelected(new Set());
+      setSelectMode(false);
+      load();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   const openEdit = (habit: any) => {
     setEditing(habit);
     setForm({ name: habit.name, description: habit.description || '', category: habit.category, frequency: habit.frequency });
@@ -139,13 +168,45 @@ export default function HabitsPage() {
           <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Habits</h1>
           <p className="text-[#555] mt-1">Track your daily routines</p>
         </div>
-        <button
-          onClick={() => { setShowForm(true); setEditing(null); setForm({ name: '', description: '', category: 'Health', frequency: 'daily' }); }}
-          className="flex items-center gap-2 bg-[#00ff88] text-[#080808] px-4 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#00cc6a] transition-colors"
-        >
-          <Plus size={15} /> New Habit
-        </button>
+        <div className="flex gap-2">
+          {habits.length > 0 && (
+            <button
+              onClick={() => { setSelectMode(!selectMode); setSelected(new Set()); }}
+              className={`flex items-center gap-2 border px-3 py-2.5 rounded-lg text-sm transition-colors ${selectMode ? 'border-[#ff4757]/30 text-[#ff4757] bg-[#ff4757]/5' : 'border-[#222] text-[#888] hover:text-white hover:border-[#333]'}`}
+            >
+              {selectMode ? 'Cancel' : 'Select'}
+            </button>
+          )}
+          <button
+            onClick={() => { setShowForm(true); setEditing(null); setForm({ name: '', description: '', category: 'Health', frequency: 'daily' }); }}
+            className="flex items-center gap-2 bg-[#00ff88] text-[#080808] px-4 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#00cc6a] transition-colors"
+          >
+            <Plus size={15} /> New Habit
+          </button>
+        </div>
       </div>
+
+      {/* Bulk actions bar */}
+      {selectMode && habits.length > 0 && (
+        <div className="flex items-center justify-between bg-[#111] border border-[#1f1f1f] rounded-xl px-4 py-3 mb-4 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <button onClick={toggleSelectAll} className="flex items-center gap-2 text-sm text-[#888] hover:text-white transition-colors">
+              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${selected.size === habits.length ? 'bg-[#00ff88] border-[#00ff88]' : 'border-[#444]'}`}>
+                {selected.size === habits.length && <CheckCircle2 size={12} className="text-[#080808]" />}
+              </div>
+              Select all
+            </button>
+            <span className="text-[#555] text-xs">{selected.size} selected</span>
+          </div>
+          <button
+            onClick={bulkDelete}
+            disabled={selected.size === 0}
+            className="flex items-center gap-2 bg-[#ff4757] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#ee3545] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <Trash2 size={14} /> Delete{selected.size > 0 ? ` (${selected.size})` : ''}
+          </button>
+        </div>
+      )}
 
       {/* Summary */}
       {totalHabits > 0 && (
@@ -185,8 +246,15 @@ export default function HabitsPage() {
             const color = CATEGORY_COLORS[habit.category] || '#888';
 
             return (
-              <div key={habit.id} className={`bg-[#111] border rounded-xl p-4 md:p-5 transition-all ${done ? (isFrozen ? 'border-[#70a1ff]/30' : 'border-[#00ff88]/20') : 'border-[#1f1f1f] hover:border-[#2a2a2a]'}`}>
+              <div key={habit.id} className={`bg-[#111] border rounded-xl p-4 md:p-5 transition-all ${selected.has(habit.id) ? 'border-[#ff4757]/30 bg-[#ff4757]/5' : done ? (isFrozen ? 'border-[#70a1ff]/30' : 'border-[#00ff88]/20') : 'border-[#1f1f1f] hover:border-[#2a2a2a]'}`}>
                 <div className="flex items-start gap-3 md:gap-4">
+                  {selectMode ? (
+                    <button onClick={() => toggleSelect(habit.id)} className="mt-0.5 flex-shrink-0 p-1 -m-1">
+                      <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${selected.has(habit.id) ? 'bg-[#ff4757] border-[#ff4757]' : 'border-[#444] hover:border-[#666]'}`}>
+                        {selected.has(habit.id) && <CheckCircle2 size={14} className="text-white" />}
+                      </div>
+                    </button>
+                  ) : (
                   <button onClick={() => toggleHabit(habit.id)} className="mt-0.5 flex-shrink-0 p-1 -m-1 active:scale-90 transition-transform">
                     {done
                       ? (isFrozen
@@ -195,6 +263,7 @@ export default function HabitsPage() {
                       : <Circle size={26} className="text-[#333] hover:text-[#555] transition-colors" />
                     }
                   </button>
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className={`font-semibold ${done ? 'text-[#555] line-through' : 'text-white'}`}>{habit.name}</h3>

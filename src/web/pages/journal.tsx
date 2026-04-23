@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Plus, X, Search, Trash2, Edit2, BookOpen, Sparkles, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, X, Search, Trash2, Edit2, BookOpen, Sparkles, RefreshCw, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useSearch } from 'wouter';
@@ -34,6 +34,8 @@ export default function JournalPage() {
   const [tagInput, setTagInput] = useState('');
   const [promptFilter, setPromptFilter] = useState<string>('');
   const [form, setForm] = useState({ title: '', content: '', mood: 'neutral', tags: [] as string[], promptId: null as number | null });
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const searchStr = useSearch();
 
@@ -102,6 +104,34 @@ export default function JournalPage() {
     }
   };
 
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === entries.length) setSelected(new Set());
+    else setSelected(new Set(entries.map(e => e.id)));
+  };
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} journal entr${selected.size > 1 ? 'ies' : 'y'}?`)) return;
+    try {
+      await api.post('/journal/bulk-delete', { ids: Array.from(selected) });
+      toast.success(`${selected.size} entr${selected.size > 1 ? 'ies' : 'y'} deleted`);
+      setSelected(new Set());
+      setSelectMode(false);
+      if (viewing && selected.has(viewing.id)) setViewing(null);
+      load();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   const openEdit = (entry: any) => {
     setEditing(entry);
     setForm({ title: entry.title || '', content: entry.content, mood: entry.mood, tags: entry.tags ? JSON.parse(entry.tags) : [], promptId: entry.promptId || null });
@@ -151,6 +181,14 @@ export default function JournalPage() {
           <p className="text-[#555] mt-1">Reflect and grow</p>
         </div>
         <div className="flex gap-2">
+          {entries.length > 0 && (
+            <button
+              onClick={() => { setSelectMode(!selectMode); setSelected(new Set()); }}
+              className={`flex items-center gap-2 border px-3 py-2.5 rounded-lg text-sm transition-colors ${selectMode ? 'border-[#ff4757]/30 text-[#ff4757] bg-[#ff4757]/5' : 'border-[#222] text-[#888] hover:text-white hover:border-[#333]'}`}
+            >
+              {selectMode ? 'Cancel' : 'Select'}
+            </button>
+          )}
           <button onClick={() => setShowPrompts(!showPrompts)} className="flex items-center gap-2 border border-[#ffa502]/30 text-[#ffa502] px-3 py-2.5 rounded-lg text-sm hover:bg-[#ffa502]/10 transition-colors">
             <Sparkles size={15} /> Prompts
           </button>
@@ -159,6 +197,28 @@ export default function JournalPage() {
           </button>
         </div>
       </div>
+
+      {/* Bulk actions bar */}
+      {selectMode && entries.length > 0 && (
+        <div className="flex items-center justify-between bg-[#111] border border-[#1f1f1f] rounded-xl px-4 py-3 mb-4 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <button onClick={toggleSelectAll} className="flex items-center gap-2 text-sm text-[#888] hover:text-white transition-colors">
+              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${selected.size === entries.length ? 'bg-[#ffa502] border-[#ffa502]' : 'border-[#444]'}`}>
+                {selected.size === entries.length && <CheckCircle2 size={12} className="text-[#080808]" />}
+              </div>
+              Select all
+            </button>
+            <span className="text-[#555] text-xs">{selected.size} selected</span>
+          </div>
+          <button
+            onClick={bulkDelete}
+            disabled={selected.size === 0}
+            className="flex items-center gap-2 bg-[#ff4757] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#ee3545] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <Trash2 size={14} /> Delete{selected.size > 0 ? ` (${selected.size})` : ''}
+          </button>
+        </div>
+      )}
 
       {/* Prompts Library Panel */}
       {showPrompts && (
@@ -268,34 +328,43 @@ export default function JournalPage() {
                 return (
                   <div
                     key={entry.id}
-                    onClick={() => setViewing(isActive ? null : entry)}
-                    className={`bg-[#111] border rounded-xl p-5 cursor-pointer transition-all ${isActive ? 'border-[#ffa502]/30' : 'border-[#1f1f1f] hover:border-[#2a2a2a]'}`}
+                    onClick={() => selectMode ? toggleSelect(entry.id) : setViewing(isActive ? null : entry)}
+                    className={`bg-[#111] border rounded-xl p-5 cursor-pointer transition-all ${selected.has(entry.id) ? 'border-[#ff4757]/30 bg-[#ff4757]/5' : isActive ? 'border-[#ffa502]/30' : 'border-[#1f1f1f] hover:border-[#2a2a2a]'}`}
                   >
                     <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-lg">{mood?.emoji}</span>
-                          <h3 className="text-white font-semibold text-sm truncate">{entry.title || 'Untitled'}</h3>
-                          {entry.promptId && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ffa502]/10 text-[#ffa502]">prompted</span>
-                          )}
-                        </div>
-                        <p className="text-[#555] text-xs line-clamp-2 mb-3">{entry.content}</p>
-                        <div className="flex items-center gap-3">
-                          <p className="text-[#444] text-xs">{format(new Date(entry.createdAt), 'EEE, MMM d · h:mm a')}</p>
-                          {tags.length > 0 && (
-                            <div className="flex gap-1">
-                              {tags.slice(0, 2).map((t: string) => (
-                                <span key={t} className="text-[#555] text-xs bg-[#1a1a1a] px-2 py-0.5 rounded-full">#{t}</span>
-                              ))}
-                            </div>
-                          )}
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        {selectMode && (
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 mt-0.5 ${selected.has(entry.id) ? 'bg-[#ff4757] border-[#ff4757]' : 'border-[#444]'}`}>
+                            {selected.has(entry.id) && <CheckCircle2 size={12} className="text-white" />}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-lg">{mood?.emoji}</span>
+                            <h3 className="text-white font-semibold text-sm truncate">{entry.title || 'Untitled'}</h3>
+                            {entry.promptId && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ffa502]/10 text-[#ffa502]">prompted</span>
+                            )}
+                          </div>
+                          <p className="text-[#555] text-xs line-clamp-2 mb-3">{entry.content}</p>
+                          <div className="flex items-center gap-3">
+                            <p className="text-[#444] text-xs">{format(new Date(entry.createdAt), 'EEE, MMM d · h:mm a')}</p>
+                            {tags.length > 0 && (
+                              <div className="flex gap-1">
+                                {tags.slice(0, 2).map((t: string) => (
+                                  <span key={t} className="text-[#555] text-xs bg-[#1a1a1a] px-2 py-0.5 rounded-full">#{t}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex gap-1 ml-3" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => openEdit(entry)} className="text-[#444] hover:text-[#888] p-1 transition-colors"><Edit2 size={13} /></button>
-                        <button onClick={() => deleteEntry(entry.id)} className="text-[#444] hover:text-[#ff4757] p-1 transition-colors"><Trash2 size={13} /></button>
-                      </div>
+                      {!selectMode && (
+                        <div className="flex gap-1 ml-3" onClick={e => e.stopPropagation()}>
+                          <button onClick={() => openEdit(entry)} className="text-[#444] hover:text-[#888] p-1 transition-colors"><Edit2 size={13} /></button>
+                          <button onClick={() => deleteEntry(entry.id)} className="text-[#444] hover:text-[#ff4757] p-1 transition-colors"><Trash2 size={13} /></button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

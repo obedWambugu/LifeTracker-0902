@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from "hono/cors";
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, and, gte, lte, like, desc, sql, count } from 'drizzle-orm';
+import { eq, and, gte, lte, like, desc, sql, count, inArray } from 'drizzle-orm';
 import { users, habits, habitCompletions, expenses, budgets, journalEntries, userPreferences } from './database/schema';
 import { createId } from '@paralleldrive/cuid2';
 import * as bcrypt from 'bcryptjs';
@@ -377,6 +377,17 @@ app.delete('/habits/:id', authMiddleware, async (c) => {
   return c.json({ success: true });
 });
 
+app.post('/habits/bulk-delete', authMiddleware, async (c) => {
+  const db = drizzle(c.env.DB);
+  const userId = c.get('userId');
+  const { ids } = await c.req.json();
+  if (!ids || !Array.isArray(ids) || ids.length === 0) return c.json({ error: 'No ids provided' }, 400);
+  for (const id of ids) {
+    await db.update(habits).set({ isActive: false }).where(and(eq(habits.id, id), eq(habits.userId, userId)));
+  }
+  return c.json({ success: true, deleted: ids.length });
+});
+
 app.post('/habits/:id/complete', authMiddleware, async (c) => {
   const db = drizzle(c.env.DB);
   const userId = c.get('userId');
@@ -475,6 +486,17 @@ app.delete('/expenses/:id', authMiddleware, async (c) => {
   return c.json({ success: true });
 });
 
+app.post('/expenses/bulk-delete', authMiddleware, async (c) => {
+  const db = drizzle(c.env.DB);
+  const userId = c.get('userId');
+  const { ids } = await c.req.json();
+  if (!ids || !Array.isArray(ids) || ids.length === 0) return c.json({ error: 'No ids provided' }, 400);
+  for (const id of ids) {
+    await db.delete(expenses).where(and(eq(expenses.id, id), eq(expenses.userId, userId)));
+  }
+  return c.json({ success: true, deleted: ids.length });
+});
+
 // ─── BUDGETS ─────────────────────────────────────────────────────────────────
 
 app.get('/budgets', authMiddleware, async (c) => {
@@ -538,6 +560,17 @@ app.delete('/journal/:id', authMiddleware, async (c) => {
   const userId = c.get('userId');
   await db.delete(journalEntries).where(and(eq(journalEntries.id, c.req.param('id')), eq(journalEntries.userId, userId)));
   return c.json({ success: true });
+});
+
+app.post('/journal/bulk-delete', authMiddleware, async (c) => {
+  const db = drizzle(c.env.DB);
+  const userId = c.get('userId');
+  const { ids } = await c.req.json();
+  if (!ids || !Array.isArray(ids) || ids.length === 0) return c.json({ error: 'No ids provided' }, 400);
+  for (const id of ids) {
+    await db.delete(journalEntries).where(and(eq(journalEntries.id, id), eq(journalEntries.userId, userId)));
+  }
+  return c.json({ success: true, deleted: ids.length });
 });
 
 // ─── DASHBOARD SUMMARY ───────────────────────────────────────────────────────

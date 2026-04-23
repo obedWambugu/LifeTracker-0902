@@ -15,7 +15,7 @@ const moodEmoji: Record<string, { icon: string; color: string; label: string }> 
   terrible: { icon: '😞', color: '#ff4757', label: 'Terrible' },
 };
 
-function OnboardingWizard({ onComplete, onSkip }: { onComplete: () => void; onSkip: () => void }) {
+function OnboardingWizard({ onComplete }: { onComplete: () => void; onSkip?: () => void }) {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
 
@@ -42,24 +42,11 @@ function OnboardingWizard({ onComplete, onSkip }: { onComplete: () => void; onSk
     },
   ];
 
-  const handleSeed = async () => {
-    setLoading(true);
-    try {
-      await api.post('/onboarding/seed', {});
-      toast.success('Sample data created! Explore around.');
-      onComplete();
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSkip = async () => {
+  const handleFinish = async () => {
     setLoading(true);
     try {
       await api.post('/onboarding/skip', {});
-      onSkip();
+      onComplete();
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -87,7 +74,7 @@ function OnboardingWizard({ onComplete, onSkip }: { onComplete: () => void; onSk
 
         {step < steps.length - 1 ? (
           <div className="flex gap-3">
-            <button onClick={handleSkip} className="flex-1 border border-[#222] text-[#888] py-3 rounded-xl text-sm hover:bg-[#1a1a1a] transition-colors">
+            <button onClick={handleFinish} disabled={loading} className="flex-1 border border-[#222] text-[#888] py-3 rounded-xl text-sm hover:bg-[#1a1a1a] transition-colors">
               Skip
             </button>
             <button onClick={() => setStep(step + 1)} className="flex-1 bg-[#00ff88] text-[#080808] py-3 rounded-xl text-sm font-semibold hover:bg-[#00cc6a] transition-colors">
@@ -95,14 +82,9 @@ function OnboardingWizard({ onComplete, onSkip }: { onComplete: () => void; onSk
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            <button onClick={handleSeed} disabled={loading} className="w-full bg-[#00ff88] text-[#080808] py-3 rounded-xl text-sm font-semibold hover:bg-[#00cc6a] transition-colors disabled:opacity-50">
-              {loading ? 'Setting up...' : 'Get started with sample data'}
-            </button>
-            <button onClick={handleSkip} disabled={loading} className="w-full border border-[#222] text-[#888] py-3 rounded-xl text-sm hover:bg-[#1a1a1a] transition-colors">
-              Start fresh (no sample data)
-            </button>
-          </div>
+          <button onClick={handleFinish} disabled={loading} className="w-full bg-[#00ff88] text-[#080808] py-3 rounded-xl text-sm font-semibold hover:bg-[#00cc6a] transition-colors disabled:opacity-50">
+            {loading ? 'Setting up...' : "Let's get started"}
+          </button>
         )}
       </div>
     </div>
@@ -166,7 +148,6 @@ export default function Dashboard() {
       {showOnboarding && (
         <OnboardingWizard
           onComplete={() => { setShowOnboarding(false); load(); }}
-          onSkip={() => { setShowOnboarding(false); load(); }}
         />
       )}
 

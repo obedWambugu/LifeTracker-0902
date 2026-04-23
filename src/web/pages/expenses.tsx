@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Plus, Trash2, Edit2, X, TrendingUp, DollarSign, PieChart } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, TrendingUp, DollarSign, PieChart, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subMonths } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart as RechartPie, Pie, Cell, Legend } from 'recharts';
@@ -39,6 +39,8 @@ export default function ExpensesPage() {
   const [form, setForm] = useState({ amount: '', category: 'Food', description: '', date: format(new Date(), 'yyyy-MM-dd'), isRecurring: false });
   const [budgetForm, setBudgetForm] = useState<Record<string, string>>({});
   const [view, setView] = useState<'list' | 'chart'>('list');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const load = async () => {
     try {
@@ -103,6 +105,33 @@ export default function ExpensesPage() {
     }
   };
 
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === expenses.length) setSelected(new Set());
+    else setSelected(new Set(expenses.map(e => e.id)));
+  };
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} expense${selected.size > 1 ? 's' : ''}?`)) return;
+    try {
+      await api.post('/expenses/bulk-delete', { ids: Array.from(selected) });
+      toast.success(`${selected.size} expense${selected.size > 1 ? 's' : ''} deleted`);
+      setSelected(new Set());
+      setSelectMode(false);
+      load();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   const saveBudgets = async () => {
     try {
       await Promise.all(
@@ -142,6 +171,14 @@ export default function ExpensesPage() {
           <p className="text-[#555] mt-1">Monitor your spending</p>
         </div>
         <div className="flex gap-2">
+          {expenses.length > 0 && (
+            <button
+              onClick={() => { setSelectMode(!selectMode); setSelected(new Set()); }}
+              className={`flex items-center gap-2 border px-3 py-2.5 rounded-lg text-sm transition-colors ${selectMode ? 'border-[#ff4757]/30 text-[#ff4757] bg-[#ff4757]/5' : 'border-[#222] text-[#888] hover:text-white hover:border-[#333]'}`}
+            >
+              {selectMode ? 'Cancel' : 'Select'}
+            </button>
+          )}
           <button onClick={() => setShowBudget(true)} className="flex items-center gap-2 border border-[#222] text-[#888] hover:text-white hover:border-[#333] px-4 py-2.5 rounded-lg text-sm transition-colors">
             Set Budgets
           </button>
@@ -249,11 +286,36 @@ export default function ExpensesPage() {
         </div>
       ) : (
         <div className="bg-[#111] border border-[#1f1f1f] rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-[#1f1f1f]">
+          <div className="p-4 border-b border-[#1f1f1f] flex items-center justify-between">
             <h3 className="text-white font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Transactions</h3>
+            {selectMode && (
+              <div className="flex items-center gap-3">
+                <button onClick={toggleSelectAll} className="flex items-center gap-2 text-sm text-[#888] hover:text-white transition-colors">
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${selected.size === expenses.length ? 'bg-[#5352ed] border-[#5352ed]' : 'border-[#444]'}`}>
+                    {selected.size === expenses.length && <CheckCircle2 size={12} className="text-white" />}
+                  </div>
+                  Select all
+                </button>
+                <span className="text-[#555] text-xs">{selected.size} selected</span>
+                <button
+                  onClick={bulkDelete}
+                  disabled={selected.size === 0}
+                  className="flex items-center gap-2 bg-[#ff4757] text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#ee3545] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <Trash2 size={12} /> Delete{selected.size > 0 ? ` (${selected.size})` : ''}
+                </button>
+              </div>
+            )}
           </div>
           {expenses.map((exp, i) => (
-            <div key={exp.id} className={`flex items-center gap-4 px-4 py-3.5 hover:bg-[#151515] transition-colors ${i < expenses.length - 1 ? 'border-b border-[#1a1a1a]' : ''}`}>
+            <div key={exp.id} className={`flex items-center gap-4 px-4 py-3.5 hover:bg-[#151515] transition-colors ${i < expenses.length - 1 ? 'border-b border-[#1a1a1a]' : ''} ${selected.has(exp.id) ? 'bg-[#ff4757]/5' : ''}`}>
+              {selectMode && (
+                <button onClick={() => toggleSelect(exp.id)} className="flex-shrink-0">
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${selected.has(exp.id) ? 'bg-[#ff4757] border-[#ff4757]' : 'border-[#444] hover:border-[#666]'}`}>
+                    {selected.has(exp.id) && <CheckCircle2 size={12} className="text-white" />}
+                  </div>
+                </button>
+              )}
               <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${CAT_COLORS[exp.category] || '#888'}22` }}>
                 <span className="text-xs font-bold" style={{ color: CAT_COLORS[exp.category] || '#888' }}>
                   {exp.category[0]}
@@ -264,14 +326,16 @@ export default function ExpensesPage() {
                 <p className="text-[#444] text-xs mt-0.5">{exp.category} · {exp.date}</p>
               </div>
               <p className="text-white font-mono font-medium">${exp.amount.toFixed(2)}</p>
-              <div className="flex gap-1">
-                <button onClick={() => { setEditing(exp); setForm({ amount: String(exp.amount), category: exp.category, description: exp.description || '', date: exp.date, isRecurring: exp.isRecurring || false }); setShowForm(true); }} className="text-[#444] hover:text-[#888] p-1 transition-colors">
-                  <Edit2 size={13} />
-                </button>
-                <button onClick={() => deleteExpense(exp.id)} className="text-[#444] hover:text-[#ff4757] p-1 transition-colors">
-                  <Trash2 size={13} />
-                </button>
-              </div>
+              {!selectMode && (
+                <div className="flex gap-1">
+                  <button onClick={() => { setEditing(exp); setForm({ amount: String(exp.amount), category: exp.category, description: exp.description || '', date: exp.date, isRecurring: exp.isRecurring || false }); setShowForm(true); }} className="text-[#444] hover:text-[#888] p-1 transition-colors">
+                    <Edit2 size={13} />
+                  </button>
+                  <button onClick={() => deleteExpense(exp.id)} className="text-[#444] hover:text-[#ff4757] p-1 transition-colors">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
