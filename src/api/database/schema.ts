@@ -8,6 +8,7 @@ export const users = sqliteTable("users", {
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
   onboarded: integer("onboarded", { mode: "boolean" }).default(false),
+  emailVerifiedAt: text("email_verified_at"), // ISO date — trial starts here
   isPremium: integer("is_premium", { mode: "boolean" }).default(false),
   premiumUntil: text("premium_until"), // ISO date string, null = not premium
   createdAt: text("created_at").default(sql`(datetime('now'))`),
