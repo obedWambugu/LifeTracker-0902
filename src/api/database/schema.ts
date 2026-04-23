@@ -15,6 +15,40 @@ export const users = sqliteTable("users", {
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
 });
 
+// Email verification tokens
+export const emailVerificationTokens = sqliteTable("email_verification_tokens", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: text("expires_at").notNull(),
+  consumedAt: text("consumed_at"),
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
+});
+
+// Daily check-ins
+export const dailyCheckins = sqliteTable("daily_checkins", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  checkInDate: text("check_in_date").notNull(),
+  mood: text("mood").notNull().default("neutral"),
+  energy: integer("energy").default(3),
+  spendAmount: real("spend_amount").default(0),
+  note: text("note"),
+  completedHabits: integer("completed_habits").default(0),
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+});
+
+// Weekly reports cache
+export const weeklyReports = sqliteTable("weekly_reports", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  weekStart: text("week_start").notNull(),
+  weekEnd: text("week_end").notNull(),
+  payload: text("payload").notNull(),
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
+});
+
 // User Preferences
 export const userPreferences = sqliteTable("user_preferences", {
   id: text("id").primaryKey(),

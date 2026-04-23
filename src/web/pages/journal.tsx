@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Plus, X, Search, Trash2, Edit2, BookOpen, Sparkles, RefreshCw, ChevronDown, ChevronUp, CheckCircle2, Crown } from 'lucide-react';
+import { Plus, X, Search, Trash2, Edit2, BookOpen, Sparkles, RefreshCw, CheckCircle2, Crown } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../lib/auth';
 import { UpgradeModal } from '../components/UpgradeModal';
+import { AdBanner } from '../components/AdBanner';
 import { format } from 'date-fns';
 import { useSearch } from 'wouter';
 import { PROMPTS, PROMPT_CATEGORIES, getRandomPrompt, getDailyPrompt, type Prompt } from '../lib/prompts';
@@ -26,7 +27,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function JournalPage() {
-  const { isPremium } = useAuth();
+  const { isPremium, isTrial, isPostTrial, trialDaysLeft } = useAuth();
   const [entries, setEntries] = useState<any[]>([]);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -42,6 +43,7 @@ export default function JournalPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const searchStr = useSearch();
+  const showAds = !isPremium;
 
   const load = async (q?: string) => {
     try {
@@ -56,6 +58,11 @@ export default function JournalPage() {
   };
 
   useEffect(() => {
+    if (isPostTrial) {
+      setLoading(false);
+      return;
+    }
+
     load();
     // Check URL params for new entry with prompt
     const params = new URLSearchParams(searchStr);
@@ -69,7 +76,7 @@ export default function JournalPage() {
         }
       }
     }
-  }, []);
+  }, [isPostTrial, searchStr]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,6 +177,43 @@ export default function JournalPage() {
   const moodCounts = MOODS.map(m => ({ ...m, count: entries.filter(e => e.mood === m.value).length }));
   const filteredPrompts = promptFilter ? PROMPTS.filter(p => p.category === promptFilter) : PROMPTS;
 
+  if (isPostTrial) {
+    return (
+      <div className="p-4 md:p-8 max-w-4xl mx-auto pb-24">
+        <div className="mb-6 flex items-center gap-2">
+          <span className="rounded-full border border-[#ffa502]/30 bg-[#ffa502]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#ffa502]">
+            Free plan · ads on
+          </span>
+        </div>
+
+        <div className="rounded-2xl border border-[#1f1f1f] bg-[#111] p-8 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#ffa502]/10 text-[#ffa502]">
+            <BookOpen size={28} />
+          </div>
+          <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
+            Journal is locked on the Free plan
+          </h1>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-[#888]">
+            Your 30-day trial has ended. Journal entries, prompts, and export are part of Pro, while the free plan keeps habits and expenses available with ads.
+          </p>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => setShowUpgrade(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#ffa502] px-5 py-3 text-sm font-semibold text-[#080808] transition-colors hover:bg-[#e09500]"
+            >
+              <Crown size={15} /> Upgrade to Pro
+            </button>
+            <p className="text-xs text-[#666]">No journal, no prompts, no insights, no freezes.</p>
+          </div>
+        </div>
+
+        {showAds && <AdBanner slot="journal-locked" className="mt-6" />}
+        {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
+      </div>
+    );
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="w-8 h-8 border-2 border-[#ffa502] border-t-transparent rounded-full animate-spin" />
@@ -183,6 +227,9 @@ export default function JournalPage() {
         <div>
           <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Journal</h1>
           <p className="text-[#555] mt-1">Reflect and grow</p>
+          <p className="mt-2 text-xs text-[#666]">
+            {isPremium ? 'Pro plan active · ads hidden' : `Trial active · ${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left · ads shown`}
+          </p>
         </div>
         <div className="flex gap-2">
           {entries.length > 0 && (
@@ -201,6 +248,8 @@ export default function JournalPage() {
           </button>
         </div>
       </div>
+
+      {showAds && <AdBanner slot="journal-top" className="mb-6" />}
 
       {/* Bulk actions bar */}
       {selectMode && entries.length > 0 && (

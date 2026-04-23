@@ -1,19 +1,39 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
-import { User, Shield, Download, LogOut, Bell, Snowflake, Mail, Crown, Phone, Check, Zap, BarChart2, Sparkles, Infinity } from 'lucide-react';
+import { User, Shield, Download, LogOut, Bell, Snowflake, Mail, Crown, Phone, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { PremiumBadge } from '../components/UpgradeModal';
+import { AdBanner } from '../components/AdBanner';
+import { hasNotificationSupport, showBrowserNotification } from '../lib/reminders';
 
 export default function SettingsPage() {
-  const { user, logout, isPremium } = useAuth();
+  const { user, logout, isPremium, isTrial, isPostTrial, trialDaysLeft } = useAuth();
   const [name, setName] = useState(user?.name || '');
   const [saving, setSaving] = useState(false);
   const [prefs, setPrefs] = useState<any>(null);
   const [prefsLoading, setPrefsLoading] = useState(true);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(
+    hasNotificationSupport() ? Notification.permission : 'unsupported'
+  );
+  const hasProAccess = isPremium || isTrial;
+  const showAds = !isPremium;
+  const planLabel = isPremium
+    ? 'Pro plan active'
+    : isTrial
+      ? `Trial active · ${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left`
+      : isPostTrial
+        ? 'Free plan active · ads shown'
+        : 'Free plan active · ads shown';
 
   useEffect(() => {
     loadPrefs();
+  }, []);
+
+  useEffect(() => {
+    if (hasNotificationSupport()) {
+      setNotificationPermission(Notification.permission);
+    }
   }, []);
 
   const loadPrefs = async () => {
@@ -46,10 +66,43 @@ export default function SettingsPage() {
     try {
       await api.put('/preferences', { [key]: value });
       toast.success('Preferences saved');
+      if (hasNotificationSupport()) {
+        setNotificationPermission(Notification.permission);
+      }
+      window.dispatchEvent(new CustomEvent('lt-preferences-updated'));
     } catch (e: any) {
       toast.error(e.message);
       loadPrefs(); // revert
     }
+  };
+
+  const toggleReminders = async () => {
+    const nextValue = !prefs?.remindersEnabled;
+    if (nextValue && hasNotificationSupport() && Notification.permission === 'default') {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      if (permission !== 'granted') {
+        toast.error('Browser notifications are needed for reminders');
+        return;
+      }
+    }
+    await updatePref('remindersEnabled', nextValue);
+  };
+
+  const sendTestReminder = async () => {
+    if (!hasNotificationSupport()) {
+      toast.info('This browser does not support notifications.');
+      return;
+    }
+    if (Notification.permission !== 'granted') {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      if (permission !== 'granted') {
+        toast.error('Notifications are blocked');
+        return;
+      }
+    }
+    showBrowserNotification('Life Tracker test', 'This is what a reminder will look like.', '/dashboard');
   };
 
   return (
@@ -57,7 +110,10 @@ export default function SettingsPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Settings</h1>
         <p className="text-[#555] mt-1">Manage your account & preferences</p>
+        <p className="mt-2 text-xs text-[#666]">{planLabel}</p>
       </div>
+
+      {showAds && <AdBanner slot="settings-top" className="mb-6" />}
 
       <div className="space-y-6">
         {/* Profile */}
@@ -96,8 +152,8 @@ export default function SettingsPage() {
 
         {/* Subscription */}
         <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-[#00ff88]/10 rounded-xl flex items-center justify-center">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00ff88]/10">
               <Crown size={18} className="text-[#00ff88]" />
             </div>
             <div className="flex items-center gap-2">
@@ -107,89 +163,101 @@ export default function SettingsPage() {
           </div>
 
           {isPremium ? (
-            <div>
-              <div className="bg-gradient-to-br from-[#00ff88]/5 to-[#5352ed]/5 border border-[#00ff88]/20 rounded-xl p-5 mb-4">
+            <div className="space-y-4">
+              <div className="rounded-xl border border-[#00ff88]/20 bg-gradient-to-br from-[#00ff88]/5 to-[#5352ed]/5 p-5">
                 <div className="flex items-center gap-2 mb-2">
                   <Crown size={16} className="text-[#00ff88]" />
-                  <p className="text-white font-semibold">Life Tracker Pro</p>
+                  <p className="font-semibold text-white">Life Tracker Pro</p>
                 </div>
-                <p className="text-[#888] text-sm">You have full access to all premium features.</p>
+                <p className="text-sm text-[#888]">You have full access to every feature and no ads.</p>
                 {user?.premiumUntil && (
-                  <p className="text-[#555] text-xs mt-2">Active until {new Date(user.premiumUntil).toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  <p className="mt-2 text-xs text-[#555]">
+                    Active until {new Date(user.premiumUntil).toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  </p>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { icon: <Infinity size={14} />, label: 'Unlimited habits' },
-                  { icon: <BarChart2 size={14} />, label: 'Insights & analytics' },
-                  { icon: <Sparkles size={14} />, label: 'Journal prompts' },
-                  { icon: <Snowflake size={14} />, label: 'Streak freezes' },
-                ].map(f => (
-                  <div key={f.label} className="flex items-center gap-2 text-[#888] text-xs">
-                    <Check size={12} className="text-[#00ff88]" /> {f.label}
+                  'Unlimited habits',
+                  'Insights & analytics',
+                  'Journal prompts',
+                  'Streak freezes',
+                ].map(label => (
+                  <div key={label} className="flex items-center gap-2 text-xs text-[#888]">
+                    <Check size={12} className="text-[#00ff88]" /> {label}
                   </div>
                 ))}
               </div>
             </div>
           ) : (
-            <div>
-              <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-5 mb-4">
-                <p className="text-[#888] text-sm mb-1">Current plan</p>
-                <p className="text-white text-lg font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Free</p>
-                <p className="text-[#555] text-xs mt-1">5 habits max · 1 streak freeze/week · Basic analytics</p>
+            <div className="space-y-4">
+              <div className="rounded-xl border border-[#1f1f1f] bg-[#0d0d0d] p-5">
+                <p className="text-sm text-[#888] mb-1">Current plan</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-lg font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
+                    {isTrial ? '30-day trial' : 'Free'}
+                  </p>
+                  <span className="text-xs text-[#666]">{isTrial ? `${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left` : 'ads shown'}</span>
+                </div>
+                <p className="mt-2 text-xs text-[#555]">
+                  {isTrial
+                    ? 'Full access with ads until the trial expires.'
+                    : '3 habits max · no journal · no insights · no prompts · no freezes · ads shown'}
+                </p>
               </div>
 
-              <div className="bg-gradient-to-br from-[#00ff88]/5 to-[#5352ed]/5 border border-[#00ff88]/20 rounded-xl p-5 mb-4">
-                <div className="flex items-center justify-between mb-3">
+              <div className="rounded-xl border border-[#00ff88]/20 bg-gradient-to-br from-[#00ff88]/5 to-[#5352ed]/5 p-5">
+                <div className="mb-3 flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-white font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Upgrade to Pro</p>
-                    <div className="flex items-baseline gap-1 mt-1">
-                      <span className="text-2xl font-bold text-[#00ff88]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>KES 49</span>
-                      <span className="text-[#555] text-xs">/month</span>
+                    <p className="font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Upgrade to Pro</p>
+                    <div className="mt-1 flex items-baseline gap-1">
+                      <span className="text-2xl font-bold text-[#00ff88]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>KES 300</span>
+                      <span className="text-xs text-[#555]">/month</span>
                     </div>
-                    <p className="text-[#00ff88]/60 text-xs mt-1">or KES 399/year (save 32%)</p>
+                    <p className="mt-1 text-xs text-[#00ff88]/70">or KES 1,800/year (save 50%)</p>
                   </div>
                   <Crown size={28} className="text-[#00ff88]/30" />
                 </div>
 
                 <div className="space-y-2 mb-4">
                   {[
-                    { icon: <Infinity size={13} />, label: 'Unlimited habits' },
-                    { icon: <BarChart2 size={13} />, label: 'Correlation insights' },
-                    { icon: <Sparkles size={13} />, label: 'Journal prompts library' },
-                    { icon: <Snowflake size={13} />, label: 'Streak freezes' },
-                    { icon: <Zap size={13} />, label: 'Advanced analytics' },
-                  ].map(f => (
-                    <div key={f.label} className="flex items-center gap-2 text-sm">
-                      <span className="text-[#00ff88]">{f.icon}</span>
-                      <span className="text-[#ccc]">{f.label}</span>
+                    'Unlimited habits',
+                    'Correlation insights',
+                    'Journal prompts',
+                    'Streak freezes',
+                    'Advanced analytics',
+                    'No ads',
+                  ].map(label => (
+                    <div key={label} className="flex items-center gap-2 text-sm">
+                      <span className="text-[#00ff88]"><Check size={13} /></span>
+                      <span className="text-[#ccc]">{label}</span>
                     </div>
                   ))}
                 </div>
 
-                <div className="bg-[#080808] border border-[#1a1a1a] rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-3">
+                <div className="rounded-lg border border-[#1a1a1a] bg-[#080808] p-4">
+                  <div className="mb-3 flex items-center gap-2">
                     <Phone size={14} className="text-[#00ff88]" />
-                    <p className="text-white text-sm font-semibold">Pay via M-Pesa</p>
+                    <p className="text-sm font-semibold text-white">Pay via M-Pesa</p>
                   </div>
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between gap-4">
                       <span className="text-[#555]">Paybill Number</span>
-                      <span className="text-white font-mono">247247</span>
+                      <span className="font-mono text-white">247247</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between gap-4">
                       <span className="text-[#555]">Account Number</span>
-                      <span className="text-white font-mono text-xs">{user?.email}</span>
+                      <span className="font-mono text-xs text-white">{user?.email}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between gap-4">
                       <span className="text-[#555]">Amount</span>
-                      <span className="text-[#00ff88] font-mono font-bold">KES 49</span>
+                      <span className="font-mono font-bold text-[#00ff88]">KES 300</span>
                     </div>
                   </div>
                 </div>
 
-                <p className="text-[#444] text-xs text-center mt-3">
-                  After payment, your account will be upgraded within 24 hours.
+                <p className="mt-3 text-center text-xs text-[#444]">
+                  Pro removes ads and unlocks every feature within 24 hours of payment.
                 </p>
               </div>
             </div>
@@ -205,6 +273,13 @@ export default function SettingsPage() {
             <h2 className="text-white font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Reminders</h2>
           </div>
 
+          <div className="mb-4 rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] px-4 py-3 text-xs text-[#666]">
+            <span className="text-[#888]">Browser notifications:</span>{' '}
+            <span className={notificationPermission === 'granted' ? 'text-[#00ff88]' : notificationPermission === 'denied' ? 'text-[#ff6b81]' : 'text-[#ffa502]'}>
+              {notificationPermission === 'unsupported' ? 'unsupported' : notificationPermission}
+            </span>
+          </div>
+
           {prefsLoading ? (
             <div className="flex items-center justify-center py-6">
               <div className="w-5 h-5 border-2 border-[#00ff88] border-t-transparent rounded-full animate-spin" />
@@ -215,10 +290,10 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-white text-sm font-medium">Daily Reminders</p>
-                  <p className="text-[#555] text-xs mt-0.5">Get reminded to log your habits & journal</p>
+                  <p className="text-[#555] text-xs mt-0.5">Get a browser reminder to log habits, spending, or a quick check-in</p>
                 </div>
                 <button
-                  onClick={() => updatePref('remindersEnabled', !prefs?.remindersEnabled)}
+                  onClick={toggleReminders}
                   className={`w-12 h-7 rounded-full transition-colors relative ${prefs?.remindersEnabled ? 'bg-[#00ff88]' : 'bg-[#333]'}`}
                 >
                   <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-transform ${prefs?.remindersEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -244,7 +319,7 @@ export default function SettingsPage() {
                   <p className="text-white text-sm font-medium flex items-center gap-2">
                     <Mail size={14} className="text-[#5352ed]" /> Weekly Report
                   </p>
-                  <p className="text-[#555] text-xs mt-0.5">Receive a weekly summary of your progress</p>
+                  <p className="text-[#555] text-xs mt-0.5">Receive a weekly browser reminder to review your progress</p>
                 </div>
                 <button
                   onClick={() => updatePref('weeklyReportEnabled', !prefs?.weeklyReportEnabled)}
@@ -253,47 +328,74 @@ export default function SettingsPage() {
                   <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-transform ${prefs?.weeklyReportEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
               </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <button
+                  onClick={sendTestReminder}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#222] px-4 py-2.5 text-xs font-semibold text-[#888] transition-colors hover:border-[#333] hover:text-white"
+                >
+                  <Bell size={12} className="text-[#ffa502]" />
+                  Send test reminder
+                </button>
+                <p className="text-xs text-[#555]">
+                  This helps us verify your reminder permission before the app starts scheduling them.
+                </p>
+              </div>
             </div>
           )}
         </div>
 
         {/* Streak Freeze Settings */}
         <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-6 relative">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-[#70a1ff]/10 rounded-xl flex items-center justify-center">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#70a1ff]/10">
               <Snowflake size={18} className="text-[#70a1ff]" />
             </div>
             <h2 className="text-white font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Streak Freeze</h2>
           </div>
 
-          <p className="text-[#888] text-sm mb-4">Streak freezes protect your streaks on off days. They're automatically applied when you miss a habit.</p>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-white text-sm font-medium">Freezes per week</p>
-              <p className="text-[#555] text-xs mt-0.5">How many times per week you can freeze each habit</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {[1, 2, 3].map(n => {
-                const canSelect = isPremium || n === 1;
-                const isActive = isPremium ? prefs?.streakFreezePerWeek === n : n === 1;
-                return (
-                  <button
-                    key={n}
-                    onClick={() => canSelect ? updatePref('streakFreezePerWeek', n) : toast.info('Upgrade to Pro for more freezes')}
-                    className={`w-10 h-10 rounded-lg text-sm font-medium transition-all relative ${
-                      isActive
-                        ? 'bg-[#70a1ff] text-white'
-                        : canSelect ? 'bg-[#1a1a1a] text-[#555] hover:text-white hover:bg-[#222]' : 'bg-[#1a1a1a] text-[#333] cursor-not-allowed'
-                    }`}
-                  >
-                    {n}
-                    {!canSelect && <Crown size={8} className="text-[#ffa502] absolute -top-1 -right-1" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {hasProAccess ? (
+            <>
+              <p className="mb-4 text-sm text-[#888]">Streak freezes protect your habits on off days. Trial users get the full feature set with ads, and Pro keeps them unlocked after the trial ends.</p>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-white">Freezes per week</p>
+                  <p className="text-xs text-[#555] mt-0.5">Choose how many times per week you can freeze each habit</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3].map(n => {
+                    const canSelect = true;
+                    const isActive = prefs?.streakFreezePerWeek === n;
+                    return (
+                      <button
+                        key={n}
+                        onClick={() => updatePref('streakFreezePerWeek', n)}
+                        className={`relative h-10 w-10 rounded-lg text-sm font-medium transition-all ${
+                          isActive
+                            ? 'bg-[#70a1ff] text-white'
+                            : 'bg-[#1a1a1a] text-[#555] hover:bg-[#222] hover:text-white'
+                        }`}
+                      >
+                        {n}
+                        {!canSelect && <Crown size={8} className="absolute -top-1 -right-1 text-[#ffa502]" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mb-4 text-sm text-[#888]">Streak freezes are part of the trial and Pro. The Free plan keeps ads on and freezes off.</p>
+              <div className="rounded-xl border border-dashed border-[#222] bg-[#0d0d0d] p-4">
+                <p className="text-sm font-medium text-white">Locked on Free</p>
+                <p className="mt-1 text-xs text-[#555]">Upgrade to re-enable freezes and keep your streaks protected.</p>
+                <button onClick={() => setShowUpgrade(true)} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#00ff88] px-4 py-2 text-xs font-semibold text-[#080808] transition-colors hover:bg-[#00cc6a]">
+                  <Crown size={12} /> Upgrade
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Account */}
@@ -320,10 +422,18 @@ export default function SettingsPage() {
             </div>
             <h2 className="text-white font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Your Data</h2>
           </div>
-          <p className="text-[#555] text-sm mb-4">All your data belongs to you. Export or delete at any time.</p>
-          <button onClick={() => toast.info('Export feature coming soon')} className="flex items-center gap-2 border border-[#222] text-[#888] hover:text-white hover:border-[#333] px-4 py-2.5 rounded-lg text-sm transition-colors">
-            <Download size={14} /> Export data
-          </button>
+          <p className="text-[#555] text-sm mb-4">
+            {hasProAccess ? 'All your data belongs to you. Export or delete at any time.' : 'Export is a Pro feature. Trial users can export until the trial ends.'}
+          </p>
+          {hasProAccess ? (
+            <button onClick={() => toast.info('Export feature coming soon')} className="flex items-center gap-2 border border-[#222] text-[#888] hover:text-white hover:border-[#333] px-4 py-2.5 rounded-lg text-sm transition-colors">
+              <Download size={14} /> Export data
+            </button>
+          ) : (
+            <button onClick={() => setShowUpgrade(true)} className="flex items-center gap-2 border border-[#222] text-[#888] hover:text-white hover:border-[#333] px-4 py-2.5 rounded-lg text-sm transition-colors">
+              <Crown size={14} /> Upgrade to export
+            </button>
+          )}
         </div>
 
         {/* Danger */}

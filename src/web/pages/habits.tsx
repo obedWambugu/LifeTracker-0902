@@ -4,6 +4,7 @@ import { Plus, CheckCircle2, Circle, Trash2, Edit2, X, Flame, BarChart2, Snowfla
 import { toast } from 'sonner';
 import { useAuth } from '../lib/auth';
 import { UpgradeModal } from '../components/UpgradeModal';
+import { AdBanner } from '../components/AdBanner';
 import { format, subDays, eachDayOfInterval } from 'date-fns';
 
 const CATEGORIES = ['Health', 'Productivity', 'Learning', 'Fitness', 'Mindfulness', 'Wellness', 'Other'];
@@ -19,7 +20,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function HabitsPage() {
-  const { isPremium } = useAuth();
+  const { isPremium, isTrial, isPostTrial, trialDaysLeft } = useAuth();
   const [habits, setHabits] = useState<any[]>([]);
   const [completions, setCompletions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,8 +31,11 @@ export default function HabitsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showUpgrade, setShowUpgrade] = useState(false);
 
-  const FREE_HABIT_LIMIT = 5;
-  const atLimit = !isPremium && habits.length >= FREE_HABIT_LIMIT;
+  const hasProAccess = isPremium || isTrial;
+  const FREE_HABIT_LIMIT = 3;
+  const atLimit = isPostTrial && habits.length >= FREE_HABIT_LIMIT;
+  const showAds = !isPremium;
+  const planLabel = isPremium ? 'Pro plan active' : isTrial ? `Trial active · ${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left` : 'Free plan active · 3 habits max';
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -50,7 +54,7 @@ export default function HabitsPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [hasProAccess]);
 
   const todayCompletedIds = completions.filter((c: any) => c.date === today).map((c: any) => c.habitId);
   const todayFreezeIds = completions.filter((c: any) => c.date === today && c.isFreezeDay).map((c: any) => c.habitId);
@@ -86,6 +90,10 @@ export default function HabitsPage() {
   };
 
   const freezeHabit = async (id: string) => {
+    if (!hasProAccess) {
+      setShowUpgrade(true);
+      return;
+    }
     try {
       const res = await api.post(`/habits/${id}/freeze`, { date: today });
       toast.success(`Streak frozen! ${res.freezesRemaining} freezes left this week.`);
@@ -167,13 +175,14 @@ export default function HabitsPage() {
     </div>
   );
 
-  return (
+    return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto pb-24">
       {/* Header */}
       <div className="flex items-start justify-between mb-6 md:mb-8">
         <div>
           <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Habits</h1>
           <p className="text-[#555] mt-1">Track your daily routines</p>
+          <p className="mt-2 text-xs text-[#666]">{planLabel}</p>
         </div>
         <div className="flex gap-2">
           {habits.length > 0 && (
@@ -223,13 +232,15 @@ export default function HabitsPage() {
         <div className="flex items-center justify-between bg-[#111] border border-[#00ff88]/20 rounded-xl px-4 py-3 mb-4 animate-fade-in">
           <div className="flex items-center gap-3">
             <Crown size={16} className="text-[#00ff88]" />
-            <p className="text-[#888] text-sm">You've reached the free limit of <span className="text-white font-semibold">{FREE_HABIT_LIMIT} habits</span></p>
+            <p className="text-[#888] text-sm">You've reached the post-trial Free limit of <span className="text-white font-semibold">{FREE_HABIT_LIMIT} habits</span></p>
           </div>
           <button onClick={() => setShowUpgrade(true)} className="bg-[#00ff88] text-[#080808] px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#00cc6a] transition-colors flex-shrink-0">
             Upgrade
           </button>
         </div>
       )}
+
+      {showAds && <AdBanner slot="habits-top" className="mb-4" />}
 
       {/* Summary */}
       {totalHabits > 0 && (
@@ -339,8 +350,7 @@ export default function HabitsPage() {
                   </div>
 
                   <div className="flex items-center gap-1">
-                    {/* Freeze button - only show if not completed and not already frozen today */}
-                    {!done && (
+                    {!done && (hasProAccess ? (
                       <button
                         onClick={() => freezeHabit(habit.id)}
                         title="Use streak freeze"
@@ -348,7 +358,15 @@ export default function HabitsPage() {
                       >
                         <Snowflake size={14} />
                       </button>
-                    )}
+                    ) : (
+                      <button
+                        onClick={() => setShowUpgrade(true)}
+                        title="Upgrade for streak freezes"
+                        className="transition-colors p-1 text-[#ffa502]/60 hover:text-[#ffa502]"
+                      >
+                        <Crown size={14} />
+                      </button>
+                    ))}
                     <button onClick={() => openEdit(habit)} className="text-[#444] hover:text-[#888] transition-colors p-1">
                       <Edit2 size={14} />
                     </button>

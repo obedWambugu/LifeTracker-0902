@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { CheckCircle2, Circle, TrendingUp, BookOpen, Plus, ArrowRight, Smile, Zap, DollarSign, Lightbulb, Sparkles, ChevronRight, Snowflake, RefreshCw, Crown } from 'lucide-react';
-import { Link, useLocation } from 'wouter';
+import { CheckCircle2, Circle, BookOpen, Plus, ArrowRight, Smile, Zap, DollarSign, Lightbulb, Sparkles, ChevronRight, RefreshCw, Crown } from 'lucide-react';
+import { Link, useLocation, useSearch } from 'wouter';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { getDailyPrompt, getRandomPrompt, PROMPT_CATEGORIES, type Prompt } from '../lib/prompts';
-import { UpgradeModal, PremiumBadge } from '../components/UpgradeModal';
+import { UpgradeModal } from '../components/UpgradeModal';
+import { AdBanner } from '../components/AdBanner';
+import DailyCheckInModal from '../components/DailyCheckInModal';
+import WeeklyReportCard from '../components/WeeklyReportCard';
+import YearInPixels from '../components/YearInPixels';
 
 const moodEmoji: Record<string, { icon: string; color: string; label: string }> = {
   excellent: { icon: '😄', color: '#00ff88', label: 'Excellent' },
@@ -93,25 +97,42 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void; onSkip?: () 
 }
 
 export default function Dashboard() {
-  const { user, isPremium } = useAuth();
+  const { user, isPremium, isTrial, isPostTrial, trialDaysLeft } = useAuth();
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [insights, setInsights] = useState<any[]>([]);
+  const [weeklyReport, setWeeklyReport] = useState<any>(null);
+  const [calendar, setCalendar] = useState<any>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [dailyPrompt, setDailyPrompt] = useState<Prompt>(getDailyPrompt());
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [showCheckIn, setShowCheckIn] = useState(false);
+  const hasProAccess = isPremium || isTrial;
+  const showAds = !isPremium;
 
   const load = async () => {
     try {
-      const d = await api.get('/dashboard');
+      const [d, report, yearCalendar] = await Promise.all([
+        api.get('/dashboard'),
+        api.get('/weekly-report').catch(() => null),
+        api.get('/calendar/year').catch(() => null),
+      ]);
       setData(d);
+      setWeeklyReport(report);
+      setCalendar(yearCalendar);
       if (d.onboarded === false) setShowOnboarding(true);
-      // Load insights
-      try {
-        const ins = await api.get('/insights');
-        setInsights(ins);
-      } catch {}
+      if (hasProAccess) {
+        try {
+          const ins = await api.get('/insights');
+          setInsights(ins);
+        } catch {
+          setInsights([]);
+        }
+      } else {
+        setInsights([]);
+      }
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -128,7 +149,15 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [hasProAccess]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    if (params.get('checkin') === '1') {
+      setShowCheckIn(true);
+      window.history.replaceState({}, '', '/dashboard');
+    }
+  }, [search]);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -144,6 +173,20 @@ export default function Dashboard() {
   const completionRate = habits.length > 0 ? Math.round((completedIds.length / habits.length) * 100) : 0;
   const mood = data?.journal?.todayMood;
   const moodInfo = mood ? moodEmoji[mood] : null;
+  const planLabel = isPremium ? 'Pro plan active' : isTrial ? `Trial active · ${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left` : 'Free plan active · ads shown';
+  const quickActions = hasProAccess
+    ? [
+        { action: 'checkin', label: data?.dailyCheckIn ? 'Update Check-in' : 'Daily Check-in', icon: <Sparkles size={16} />, bg: 'bg-[#00ff88]/5 hover:bg-[#00ff88]/10 border-[#00ff88]/20 text-[#00ff88]' },
+        { href: '/habits?new=1', label: 'New Habit', icon: <Zap size={16} />, bg: 'bg-[#00ff88]/5 hover:bg-[#00ff88]/10 border-[#00ff88]/20 text-[#00ff88]' },
+        { href: '/expenses?new=1', label: 'Log Expense', icon: <DollarSign size={16} />, bg: 'bg-[#5352ed]/5 hover:bg-[#5352ed]/10 border-[#5352ed]/20 text-[#5352ed]' },
+        { href: '/journal?new=1', label: 'Write Journal Entry', icon: <BookOpen size={16} />, bg: 'bg-[#ffa502]/5 hover:bg-[#ffa502]/10 border-[#ffa502]/20 text-[#ffa502]' },
+      ]
+    : [
+        { action: 'checkin', label: data?.dailyCheckIn ? 'Update Check-in' : 'Daily Check-in', icon: <Sparkles size={16} />, bg: 'bg-[#00ff88]/5 hover:bg-[#00ff88]/10 border-[#00ff88]/20 text-[#00ff88]' },
+        { href: '/habits?new=1', label: 'New Habit', icon: <Zap size={16} />, bg: 'bg-[#00ff88]/5 hover:bg-[#00ff88]/10 border-[#00ff88]/20 text-[#00ff88]' },
+        { href: '/expenses?new=1', label: 'Log Expense', icon: <DollarSign size={16} />, bg: 'bg-[#5352ed]/5 hover:bg-[#5352ed]/10 border-[#5352ed]/20 text-[#5352ed]' },
+        { href: '#upgrade', label: 'Unlock Journal', icon: <Crown size={16} />, bg: 'bg-[#ffa502]/5 hover:bg-[#ffa502]/10 border-[#ffa502]/20 text-[#ffa502]' },
+      ];
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto pb-24">
@@ -161,13 +204,59 @@ export default function Dashboard() {
         </h1>
       </div>
 
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <span
+          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
+            isPremium
+              ? 'border-[#00ff88]/30 bg-[#00ff88]/10 text-[#00ff88]'
+              : isTrial
+                ? 'border-[#5352ed]/30 bg-[#5352ed]/10 text-[#a9b1ff]'
+                : 'border-[#ffa502]/30 bg-[#ffa502]/10 text-[#ffa502]'
+          }`}
+        >
+          {planLabel}
+        </span>
+        <p className="text-xs text-[#666]">
+          {isPremium ? 'Ads are hidden on Pro.' : 'Ads support the free and trial experience.'}
+        </p>
+      </div>
+
+      <div className="mb-6 rounded-2xl border border-[#1f1f1f] bg-gradient-to-br from-[#00ff88]/5 via-[#111] to-[#5352ed]/5 p-5 md:p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="max-w-2xl">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#00ff88]/20 bg-[#00ff88]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00ff88]">
+              <Sparkles size={12} />
+              One-tap daily check-in
+            </div>
+            <h2 className="text-xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
+              Log today in 10 seconds
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-[#888]">
+              Capture mood, energy, spending, and a quick note before the day gets away from you.
+            </p>
+            {data?.dailyCheckIn && (
+              <p className="mt-3 text-xs font-medium text-[#00ff88]">
+                You already checked in today. Open the quick check-in again to update it.
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => setShowCheckIn(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00ff88] px-5 py-3 text-sm font-semibold text-[#080808] transition-colors hover:bg-[#00cc6a]"
+          >
+            <Sparkles size={14} />
+            {data?.dailyCheckIn ? 'Update check-in' : 'Quick check-in'}
+          </button>
+        </div>
+      </div>
+
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8 overflow-hidden">
         {[
           { label: 'Habits Today', value: `${completedIds.length}/${habits.length}`, sub: `${completionRate}% complete`, color: '#00ff88', icon: <Zap size={16} />, delay: 'animate-delay-1' },
           { label: "Today's Spend", value: `$${(data?.expenses?.today || 0).toFixed(2)}`, sub: `$${(data?.expenses?.totalMonth || 0).toFixed(0)} this month`, color: '#5352ed', icon: <DollarSign size={16} />, delay: 'animate-delay-2' },
-          { label: "Today's Mood", value: moodInfo ? moodInfo.icon : '—', sub: moodInfo ? moodInfo.label : 'No entry yet', color: moodInfo?.color || '#555', icon: <Smile size={16} />, delay: 'animate-delay-3' },
-          { label: 'Journal Entries', value: data?.journal?.recentEntries?.length || 0, sub: 'Recent entries', color: '#ffa502', icon: <BookOpen size={16} />, delay: 'animate-delay-4' },
+          { label: "Today's Mood", value: hasProAccess ? (moodInfo ? moodInfo.icon : '—') : 'Locked', sub: hasProAccess ? (moodInfo ? moodInfo.label : 'No entry yet') : 'Trial / Pro feature', color: hasProAccess ? (moodInfo?.color || '#555') : '#777', icon: <Smile size={16} />, delay: 'animate-delay-3' },
+          { label: 'Journal Entries', value: hasProAccess ? (data?.journal?.recentEntries?.length || 0) : 'Locked', sub: hasProAccess ? 'Recent entries' : 'Trial / Pro feature', color: '#ffa502', icon: <BookOpen size={16} />, delay: 'animate-delay-4' },
         ].map((stat) => (
           <div key={stat.label} className={`bg-[#111] border border-[#1f1f1f] rounded-xl p-4 md:p-5 animate-fade-in ${stat.delay} min-w-0`}>
             <div className="flex items-center justify-between mb-2 md:mb-3">
@@ -180,15 +269,30 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {showAds && <AdBanner slot="dashboard-top" className="mb-6 md:mb-8" />}
+
+      <div className="mb-6 md:mb-8 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <WeeklyReportCard
+          report={weeklyReport}
+          loading={loading && !weeklyReport}
+          onRefresh={load}
+          onUpgrade={() => setShowUpgrade(true)}
+        />
+        <YearInPixels
+          calendar={calendar}
+          loading={loading && !calendar}
+        />
+      </div>
+
       {/* Insights Cards */}
-      {insights.length > 0 && (
+      {(insights.length > 0 || !hasProAccess) && (
         <div className="mb-6 md:mb-8 animate-fade-in animate-delay-2">
           <div className="flex items-center gap-2 mb-3">
             <Lightbulb size={16} className="text-[#ffa502]" />
             <h2 className="text-white font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif' }}>Insights</h2>
-            {!isPremium && <PremiumBadge small />}
+            {!hasProAccess && <span className="rounded-full border border-[#ffa502]/20 bg-[#ffa502]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#ffa502]">Locked</span>}
           </div>
-          {!isPremium ? (
+          {!hasProAccess ? (
             <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#00ff88]/10 rounded-xl flex items-center justify-center">
@@ -196,7 +300,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <p className="text-white text-sm font-semibold">Unlock correlation insights</p>
-                  <p className="text-[#555] text-xs">See how your habits affect spending & mood</p>
+                  <p className="text-[#555] text-xs">Trial keeps them on, Free locks them and keeps ads.</p>
                 </div>
               </div>
               <button onClick={() => setShowUpgrade(true)} className="bg-[#00ff88] text-[#080808] px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#00cc6a] transition-colors flex-shrink-0">
@@ -220,25 +324,42 @@ export default function Dashboard() {
       )}
 
       {/* Prompt of the Day */}
-      <div className="mb-6 md:mb-8 bg-gradient-to-r from-[#ffa502]/5 to-[#ff6b81]/5 border border-[#ffa502]/20 rounded-xl p-5 animate-fade-in animate-delay-3 relative">
-
-        <div className="flex items-center justify-between mb-3">
+      {hasProAccess ? (
+        <div className="mb-6 md:mb-8 bg-gradient-to-r from-[#ffa502]/5 to-[#ff6b81]/5 border border-[#ffa502]/20 rounded-xl p-5 animate-fade-in animate-delay-3 relative">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="text-[#ffa502]" />
+              <h3 className="text-white font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif' }}>Prompt of the Day</h3>
+            </div>
+            <button onClick={() => setDailyPrompt(getRandomPrompt())} className="text-[#555] hover:text-[#ffa502] transition-colors">
+              <RefreshCw size={14} />
+            </button>
+          </div>
+          <p className="text-[#ccc] text-sm leading-relaxed mb-3">"{dailyPrompt.text}"</p>
+          <div className="flex items-center justify-between">
+            <span className="text-[#ffa502]/60 text-xs capitalize">{dailyPrompt.category}</span>
+            <button onClick={() => setLocation('/journal?new=1&prompt=' + dailyPrompt.id)} className="text-[#ffa502] text-xs flex items-center gap-1 hover:underline">
+              Write about this <ChevronRight size={12} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-6 md:mb-8 rounded-xl border border-[#1f1f1f] bg-[#111] p-5 animate-fade-in animate-delay-3">
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-[#ffa502]" />
             <h3 className="text-white font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif' }}>Prompt of the Day</h3>
           </div>
-          <button onClick={() => setDailyPrompt(getRandomPrompt())} className="text-[#555] hover:text-[#ffa502] transition-colors">
-            <RefreshCw size={14} />
+          <p className="mt-3 text-sm leading-relaxed text-[#888]">
+            Prompts and journaling stay unlocked during the 30-day trial and on Pro.
+          </p>
+          <button
+            onClick={() => setShowUpgrade(true)}
+            className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#ffa502] hover:underline"
+          >
+            Upgrade to write <ChevronRight size={12} />
           </button>
         </div>
-        <p className="text-[#ccc] text-sm leading-relaxed mb-3">"{dailyPrompt.text}"</p>
-        <div className="flex items-center justify-between">
-          <span className="text-[#ffa502]/60 text-xs capitalize">{dailyPrompt.category}</span>
-          <button onClick={() => setLocation('/journal?new=1&prompt=' + dailyPrompt.id)} className="text-[#ffa502] text-xs flex items-center gap-1 hover:underline">
-            Write about this <ChevronRight size={12} />
-          </button>
-        </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Today's Habits */}
@@ -321,7 +442,8 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Journal Entries */}
+      {/* Journal Entries */}
+      {hasProAccess ? (
         <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-6 animate-fade-in animate-delay-4">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-bold text-white text-lg" style={{ fontFamily: 'Syne, sans-serif' }}>Recent Journal</h2>
@@ -357,27 +479,64 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-
-        {/* Quick Actions */}
-        <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-6 animate-fade-in animate-delay-5">
-          <h2 className="font-bold text-white text-lg mb-5" style={{ fontFamily: 'Syne, sans-serif' }}>Quick Add</h2>
-          <div className="grid grid-cols-1 gap-3">
-            {[
-              { href: '/habits?new=1', label: 'New Habit', icon: <Zap size={16} />, bg: 'bg-[#00ff88]/5 hover:bg-[#00ff88]/10 border-[#00ff88]/20 text-[#00ff88]' },
-              { href: '/expenses?new=1', label: 'Log Expense', icon: <DollarSign size={16} />, bg: 'bg-[#5352ed]/5 hover:bg-[#5352ed]/10 border-[#5352ed]/20 text-[#5352ed]' },
-              { href: '/journal?new=1', label: 'Write Journal Entry', icon: <BookOpen size={16} />, bg: 'bg-[#ffa502]/5 hover:bg-[#ffa502]/10 border-[#ffa502]/20 text-[#ffa502]' },
-            ].map(item => (
-              <Link key={item.href} href={item.href}>
-                <a className={`flex items-center gap-3 p-4 rounded-lg border transition-all ${item.bg}`}>
-                  {item.icon}
-                  <span className="font-medium text-sm">{item.label}</span>
-                  <ArrowRight size={14} className="ml-auto" />
-                </a>
-              </Link>
-            ))}
+      ) : (
+        <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-6 animate-fade-in animate-delay-4">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="font-bold text-white text-lg" style={{ fontFamily: 'Syne, sans-serif' }}>Journal</h2>
+            <button onClick={() => setShowUpgrade(true)} className="text-[#ffa502] text-xs flex items-center gap-1 hover:underline">
+              Upgrade <ArrowRight size={12} />
+            </button>
+          </div>
+          <div className="rounded-xl border border-dashed border-[#222] bg-[#0d0d0d] p-5">
+            <p className="text-sm text-[#ddd]">Journaling and prompts stay unlocked for the 30-day trial and Pro.</p>
+            <p className="mt-2 text-xs leading-relaxed text-[#666]">The post-trial Free plan keeps ads, habits, and expenses only.</p>
           </div>
         </div>
+      )}
+
+      {/* Quick Actions */}
+      <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-6 animate-fade-in animate-delay-5">
+        <h2 className="font-bold text-white text-lg mb-5" style={{ fontFamily: 'Syne, sans-serif' }}>Quick Add</h2>
+        <div className="grid grid-cols-1 gap-3">
+          {quickActions.map(item => item.action === 'checkin' ? (
+            <button
+              key={item.label}
+              onClick={() => setShowCheckIn(true)}
+              className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-all ${item.bg}`}
+            >
+              {item.icon}
+              <span className="font-medium text-sm">{item.label}</span>
+              <ArrowRight size={14} className="ml-auto" />
+            </button>
+          ) : item.href === '#upgrade' ? (
+            <button key={item.label} onClick={() => setShowUpgrade(true)} className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-all ${item.bg}`}>
+              {item.icon}
+              <span className="font-medium text-sm">{item.label}</span>
+              <ArrowRight size={14} className="ml-auto" />
+            </button>
+          ) : (
+            <Link key={item.href} href={item.href}>
+              <a className={`flex items-center gap-3 rounded-lg border p-4 transition-all ${item.bg}`}>
+                {item.icon}
+                <span className="font-medium text-sm">{item.label}</span>
+                <ArrowRight size={14} className="ml-auto" />
+              </a>
+            </Link>
+          ))}
+        </div>
       </div>
+      </div>
+
+      {showCheckIn && (
+        <DailyCheckInModal
+          open={showCheckIn}
+          onClose={() => setShowCheckIn(false)}
+          onSaved={load}
+          completedHabits={completedIds.length}
+          totalHabits={habits.length}
+          initialCheckIn={data?.dailyCheckIn}
+        />
+      )}
 
       {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
     </div>

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { Zap, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Zap, ArrowRight, Eye, EyeOff, Mail } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from '../lib/navigate';
 
 export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -11,6 +12,7 @@ export default function AuthPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login, register } = useAuth();
+  const navigate = useNavigate();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,11 +20,32 @@ export default function AuthPage() {
     try {
       if (mode === 'login') {
         await login(email, password);
+        return;
       } else {
-        if (!name.trim()) { toast.error('Name required'); setLoading(false); return; }
-        await register(email, name, password);
+        if (!name.trim()) {
+          toast.error('Name required');
+          setLoading(false);
+          return;
+        }
+        const result = await register(email, name, password);
+        if (result?.verificationRequired) {
+          if (result.verificationLink) {
+            sessionStorage.setItem('lt_verification_link', result.verificationLink);
+          } else {
+            sessionStorage.removeItem('lt_verification_link');
+          }
+          toast.success(result.message || 'We sent a verification email to your inbox.');
+          navigate(`/auth/verify?email=${encodeURIComponent(email.trim())}`);
+          return;
+        }
       }
     } catch (err: any) {
+      if (err.code === 'EMAIL_NOT_VERIFIED') {
+        sessionStorage.removeItem('lt_verification_link');
+        toast.error('Please verify your email before signing in.');
+        navigate(`/auth/verify?email=${encodeURIComponent(email.trim())}`);
+        return;
+      }
       toast.error(err.message || 'Something went wrong');
     } finally {
       setLoading(false);
@@ -47,14 +70,14 @@ export default function AuthPage() {
             <span className="text-[#00ff88]">your life.</span>
           </h1>
           <p className="text-[#666] text-lg leading-relaxed max-w-sm">
-            Habits, expenses, and journal — unified. Stop juggling apps and start seeing the full picture.
+            Habits, expenses, and journal - unified. Every verified account starts with a 30-day trial, then keeps a free ad-supported plan.
           </p>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
           {[
             { label: 'Habits', value: '∞', desc: 'Track unlimited' },
-            { label: 'Insights', value: '30', desc: 'Days of history' },
+            { label: 'Trial', value: '30', desc: 'Days of full access' },
             { label: 'Privacy', value: '100%', desc: 'Your data only' },
           ].map(item => (
             <div key={item.label} className="bg-[#111] rounded-xl p-4 border border-[#222]">
@@ -81,8 +104,15 @@ export default function AuthPage() {
             {mode === 'login' ? 'Welcome back' : 'Get started'}
           </h2>
           <p className="text-[#666] mb-8">
-            {mode === 'login' ? 'Sign in to your account' : 'Create your free account'}
+            {mode === 'login' ? 'Sign in to continue your trial or Pro account' : 'Create your 30-day trial account'}
           </p>
+
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-[#00ff88]/15 bg-[#00ff88]/5 p-4 text-sm text-[#b9b9b9]">
+            <Mail size={16} className="mt-0.5 shrink-0 text-[#00ff88]" />
+            <p>
+              Registration sends a verification email first. Your 30-day trial starts only after you click the link in your inbox.
+            </p>
+          </div>
 
           <form onSubmit={submit} className="space-y-4">
             {mode === 'register' && (
