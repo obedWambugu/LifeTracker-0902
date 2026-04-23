@@ -1,4 +1,4 @@
-const CACHE = 'life-tracker-v1';
+const CACHE = 'life-tracker-v2';
 const STATIC = ['/','index.html'];
 
 self.addEventListener('install', e => {
@@ -32,6 +32,49 @@ self.addEventListener('fetch', e => {
         }
         return res;
       }).catch(() => caches.match('/'));
+    })
+  );
+});
+
+self.addEventListener('push', event => {
+  let payload = {
+    title: 'Life Tracker reminder',
+    body: 'Take a moment to check in with your day.',
+    url: '/dashboard',
+  };
+
+  if (event.data) {
+    try {
+      payload = { ...payload, ...event.data.json() };
+    } catch {
+      payload.body = event.data.text();
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: payload.url || '/dashboard' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  const targetUrl = event.notification?.data?.url || '/dashboard';
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      for (const client of windowClients) {
+        if ('focus' in client) {
+          if ('navigate' in client && typeof client.navigate === 'function') {
+            return client.navigate(targetUrl).then(() => client.focus());
+          }
+          return client.focus();
+        }
+      }
+      return clients.openWindow(targetUrl);
     })
   );
 });

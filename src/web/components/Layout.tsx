@@ -9,6 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 import { triggerInstall, isInstallable, isStandalone } from '../lib/pwa';
 import { toast } from 'sonner';
+import ReminderBridge from './ReminderBridge';
 
 const nav = [
   { href: '/dashboard', label: 'Home',     icon: LayoutDashboard },
@@ -129,6 +130,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* ── Mobile Bottom Nav ───────────────────────────── */}
       <BottomNav location={location} />
+      <ReminderBridge />
     </div>
   );
 }

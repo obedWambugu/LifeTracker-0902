@@ -5,16 +5,36 @@ interface User {
   id: string;
   email: string;
   name: string;
+  onboarded: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+  emailVerifiedAt: string | null;
+  isEmailVerified: boolean;
   isPremium: boolean;
   premiumUntil: string | null;
+  isTrial: boolean;
+  isPostTrial: boolean;
+  trialDaysLeft: number;
+}
+
+interface RegisterResponse {
+  verificationRequired: true;
+  email: string;
+  message: string;
+  verificationEmailSent: boolean;
+  verificationLink?: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isPremium: boolean;
+  isTrial: boolean;
+  isPostTrial: boolean;
+  trialDaysLeft: number;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, name: string, password: string) => Promise<void>;
+  register: (email: string, name: string, password: string) => Promise<RegisterResponse>;
+  setSession: (token: string, user: User) => void;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -35,6 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setSession = (token: string, nextUser: User) => {
+    localStorage.setItem('lt_token', token);
+    setUser(nextUser);
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('lt_token');
     if (token) {
@@ -46,14 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const data = await api.post('/auth/login', { email, password });
-    localStorage.setItem('lt_token', data.token);
-    setUser(data.user);
+    setSession(data.token, data.user);
   };
 
   const register = async (email: string, name: string, password: string) => {
-    const data = await api.post('/auth/register', { email, name, password });
-    localStorage.setItem('lt_token', data.token);
-    setUser(data.user);
+    return api.post('/auth/register', { email, name, password });
   };
 
   const logout = () => {
@@ -62,9 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const isPremium = !!(user?.isPremium);
+  const isTrial = !!(user?.isTrial);
+  const isPostTrial = !!(user?.isPostTrial);
+  const trialDaysLeft = user?.trialDaysLeft ?? 0;
 
   return (
-    <AuthContext.Provider value={{ user, loading, isPremium, login, register, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, isPremium, isTrial, isPostTrial, trialDaysLeft, login, register, setSession, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

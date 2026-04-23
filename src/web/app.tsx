@@ -10,6 +10,7 @@ import HabitsPage from "./pages/habits";
 import ExpensesPage from "./pages/expenses";
 import JournalPage from "./pages/journal";
 import SettingsPage from "./pages/settings";
+import VerifyEmailPage from "./pages/verify-email";
 import Layout from "./components/Layout";
 
 function AppRoutes() {
@@ -30,11 +31,16 @@ function AppRoutes() {
     return (
       <Switch>
         <Route path="/auth" component={AuthPage} />
+        <Route path="/auth/verify" component={VerifyEmailPage} />
         <Route>
           <Redirect to="/auth" />
         </Route>
       </Switch>
     );
+  }
+
+  if (!user.isEmailVerified) {
+    return <VerifyEmailPage />;
   }
 
   return (
