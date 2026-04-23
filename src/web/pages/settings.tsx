@@ -136,7 +136,7 @@ export default function SettingsPage() {
               <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-5 mb-4">
                 <p className="text-[#888] text-sm mb-1">Current plan</p>
                 <p className="text-white text-lg font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Free</p>
-                <p className="text-[#555] text-xs mt-1">5 habits max · No insights · No prompts · No streak freezes</p>
+                <p className="text-[#555] text-xs mt-1">5 habits max · 1 streak freeze/week · Basic analytics</p>
               </div>
 
               <div className="bg-gradient-to-br from-[#00ff88]/5 to-[#5352ed]/5 border border-[#00ff88]/20 rounded-xl p-5 mb-4">
@@ -144,9 +144,10 @@ export default function SettingsPage() {
                   <div>
                     <p className="text-white font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Upgrade to Pro</p>
                     <div className="flex items-baseline gap-1 mt-1">
-                      <span className="text-2xl font-bold text-[#00ff88]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>KES 149</span>
+                      <span className="text-2xl font-bold text-[#00ff88]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>KES 49</span>
                       <span className="text-[#555] text-xs">/month</span>
                     </div>
+                    <p className="text-[#00ff88]/60 text-xs mt-1">or KES 399/year (save 32%)</p>
                   </div>
                   <Crown size={28} className="text-[#00ff88]/30" />
                 </div>
@@ -182,7 +183,7 @@ export default function SettingsPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[#555]">Amount</span>
-                      <span className="text-[#00ff88] font-mono font-bold">KES 149</span>
+                      <span className="text-[#00ff88] font-mono font-bold">KES 49</span>
                     </div>
                   </div>
                 </div>
@@ -257,12 +258,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Streak Freeze Settings */}
-        <div className={`bg-[#111] border rounded-xl p-6 relative ${isPremium ? 'border-[#1f1f1f]' : 'border-[#1f1f1f] opacity-60'}`}>
-          {!isPremium && (
-            <div className="absolute top-4 right-4">
-              <PremiumBadge small />
-            </div>
-          )}
+        <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-6 relative">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-[#70a1ff]/10 rounded-xl flex items-center justify-center">
               <Snowflake size={18} className="text-[#70a1ff]" />
@@ -278,19 +274,24 @@ export default function SettingsPage() {
               <p className="text-[#555] text-xs mt-0.5">How many times per week you can freeze each habit</p>
             </div>
             <div className="flex items-center gap-2">
-              {[1, 2, 3].map(n => (
-                <button
-                  key={n}
-                  onClick={() => isPremium ? updatePref('streakFreezePerWeek', n) : toast.info('Upgrade to Pro to use streak freezes')}
-                  className={`w-10 h-10 rounded-lg text-sm font-medium transition-all ${
-                    prefs?.streakFreezePerWeek === n
-                      ? 'bg-[#70a1ff] text-white'
-                      : 'bg-[#1a1a1a] text-[#555] hover:text-white hover:bg-[#222]'
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
+              {[1, 2, 3].map(n => {
+                const canSelect = isPremium || n === 1;
+                const isActive = isPremium ? prefs?.streakFreezePerWeek === n : n === 1;
+                return (
+                  <button
+                    key={n}
+                    onClick={() => canSelect ? updatePref('streakFreezePerWeek', n) : toast.info('Upgrade to Pro for more freezes')}
+                    className={`w-10 h-10 rounded-lg text-sm font-medium transition-all relative ${
+                      isActive
+                        ? 'bg-[#70a1ff] text-white'
+                        : canSelect ? 'bg-[#1a1a1a] text-[#555] hover:text-white hover:bg-[#222]' : 'bg-[#1a1a1a] text-[#333] cursor-not-allowed'
+                    }`}
+                  >
+                    {n}
+                    {!canSelect && <Crown size={8} className="text-[#ffa502] absolute -top-1 -right-1" />}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

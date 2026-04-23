@@ -342,9 +342,9 @@ export default function HabitsPage() {
                     {/* Freeze button - only show if not completed and not already frozen today */}
                     {!done && (
                       <button
-                        onClick={() => isPremium ? freezeHabit(habit.id) : setShowUpgrade(true)}
-                        title={isPremium ? "Use streak freeze" : "Pro feature: Streak freeze"}
-                        className={`transition-colors p-1 ${isPremium ? 'text-[#70a1ff]/50 hover:text-[#70a1ff]' : 'text-[#444] hover:text-[#666]'}`}
+                        onClick={() => freezeHabit(habit.id)}
+                        title="Use streak freeze"
+                        className="transition-colors p-1 text-[#70a1ff]/50 hover:text-[#70a1ff]"
                       >
                         <Snowflake size={14} />
                       </button>

@@ -221,15 +221,7 @@ export default function Dashboard() {
 
       {/* Prompt of the Day */}
       <div className="mb-6 md:mb-8 bg-gradient-to-r from-[#ffa502]/5 to-[#ff6b81]/5 border border-[#ffa502]/20 rounded-xl p-5 animate-fade-in animate-delay-3 relative">
-        {!isPremium && (
-          <div className="absolute inset-0 bg-[#080808]/70 backdrop-blur-[2px] rounded-xl z-10 flex flex-col items-center justify-center gap-2">
-            <Crown size={20} className="text-[#ffa502]" />
-            <p className="text-white text-sm font-semibold">Journal Prompts — Pro</p>
-            <button onClick={() => setShowUpgrade(true)} className="bg-[#ffa502] text-[#080808] px-4 py-2 rounded-lg text-xs font-semibold hover:bg-[#e09500] transition-colors">
-              Upgrade
-            </button>
-          </div>
-        )}
+
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-[#ffa502]" />

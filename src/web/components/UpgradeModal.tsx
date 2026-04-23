@@ -1,11 +1,11 @@
-import { X, Zap, BarChart2, Sparkles, Snowflake, Infinity, Crown, Phone } from 'lucide-react';
+import { X, Zap, BarChart2, Snowflake, Infinity, Crown, Phone, Download } from 'lucide-react';
 
 const FEATURES = [
   { icon: <Infinity size={16} />, label: 'Unlimited habits', desc: 'Free plan caps at 5' },
   { icon: <BarChart2 size={16} />, label: 'Correlation insights', desc: 'See how habits affect spending & mood' },
-  { icon: <Sparkles size={16} />, label: 'Journal prompts library', desc: '30+ curated writing prompts' },
-  { icon: <Snowflake size={16} />, label: 'Streak freezes', desc: 'Protect your streaks on off days' },
+  { icon: <Snowflake size={16} />, label: '3 streak freezes/week', desc: 'Free plan gets 1 per week' },
   { icon: <Zap size={16} />, label: 'Advanced analytics', desc: 'Deeper charts, trends & summaries' },
+  { icon: <Download size={16} />, label: 'Data export', desc: 'Export your data anytime' },
 ];
 
 export function UpgradeModal({ onClose }: { onClose: () => void }) {
@@ -28,9 +28,10 @@ export function UpgradeModal({ onClose }: { onClose: () => void }) {
               <p className="text-[#888] text-xs">Unlock your full potential</p>
             </div>
           </div>
-          <div className="flex items-baseline gap-1 mt-4">
-            <span className="text-4xl font-bold text-white" style={{ fontFamily: 'JetBrains Mono, monospace' }}>KES 149</span>
+          <div className="flex items-baseline gap-2 mt-4">
+            <span className="text-4xl font-bold text-white" style={{ fontFamily: 'JetBrains Mono, monospace' }}>KES 49</span>
             <span className="text-[#555] text-sm">/month</span>
+            <span className="text-[#888] text-xs ml-2 bg-[#00ff88]/10 text-[#00ff88] px-2 py-0.5 rounded-full">or KES 399/year</span>
           </div>
         </div>
 
@@ -67,7 +68,7 @@ export function UpgradeModal({ onClose }: { onClose: () => void }) {
               </div>
               <div className="flex justify-between">
                 <span className="text-[#555]">Amount</span>
-                <span className="text-[#00ff88] font-mono font-bold">KES 149</span>
+                <span className="text-[#00ff88] font-mono font-bold">KES 49</span>
               </div>
             </div>
           </div>
@@ -89,23 +90,5 @@ export function PremiumBadge({ small }: { small?: boolean }) {
     <span className={`inline-flex items-center gap-1 bg-gradient-to-r from-[#00ff88]/20 to-[#5352ed]/20 border border-[#00ff88]/30 text-[#00ff88] rounded-full font-semibold ${small ? 'text-[10px] px-2 py-0.5' : 'text-xs px-2.5 py-1'}`}>
       <Crown size={small ? 10 : 12} /> PRO
     </span>
-  );
-}
-
-// Lock overlay for premium features
-export function PremiumLock({ onUpgrade, message }: { onUpgrade: () => void; message?: string }) {
-  return (
-    <div className="relative">
-      <div className="absolute inset-0 bg-[#080808]/80 backdrop-blur-[2px] rounded-xl z-10 flex flex-col items-center justify-center gap-3 p-4">
-        <Crown size={24} className="text-[#00ff88]" />
-        <p className="text-white text-sm font-semibold text-center">{message || 'Pro Feature'}</p>
-        <button
-          onClick={onUpgrade}
-          className="bg-[#00ff88] text-[#080808] px-5 py-2 rounded-lg text-sm font-semibold hover:bg-[#00cc6a] transition-colors"
-        >
-          Upgrade to Pro
-        </button>
-      </div>
-    </div>
   );
 }

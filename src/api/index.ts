@@ -467,14 +467,10 @@ app.post('/habits/:id/freeze', authMiddleware, async (c) => {
   const body = await c.req.json();
   const date = body.date || new Date().toISOString().split('T')[0];
 
-  // Premium-only feature
+  // Check premium status for freeze limits
   const usr = await db.select({ isPremium: users.isPremium, premiumUntil: users.premiumUntil }).from(users).where(eq(users.id, userId)).get();
   const premiumActive = usr?.isPremium && (!usr.premiumUntil || new Date(usr.premiumUntil) > new Date());
-  if (!premiumActive) {
-    return c.json({ error: 'Streak freezes are a Pro feature. Upgrade to protect your streaks.' }, 403);
-  }
 
-  // Check if freeze already used this week (max 1 per habit per week)
   const habit = await db.select().from(habits).where(and(eq(habits.id, habitId), eq(habits.userId, userId))).get();
   if (!habit) return c.json({ error: 'Habit not found' }, 404);
 
@@ -489,9 +485,9 @@ app.post('/habits/:id/freeze', authMiddleware, async (c) => {
     freezesUsed = 0;
   }
 
-  // Get user's allowed freezes per week
+  // Free users: 1 freeze/week. Pro users: up to 3/week (configurable)
   const prefs = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId)).get();
-  const maxFreezes = prefs?.streakFreezePerWeek || 1;
+  const maxFreezes = premiumActive ? (prefs?.streakFreezePerWeek || 3) : 1;
 
   if (freezesUsed >= maxFreezes) {
     return c.json({ error: 'No freezes left this week' }, 400);
