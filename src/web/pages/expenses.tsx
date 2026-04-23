@@ -134,7 +134,7 @@ export default function ExpensesPage() {
   );
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
@@ -279,8 +279,8 @@ export default function ExpensesPage() {
 
       {/* Add/Edit Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#111] border border-[#222] rounded-2xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end md:items-center justify-center md:p-4">
+          <div className="bg-[#111] border border-[#222] rounded-t-2xl md:rounded-2xl p-6 w-full md:max-w-md max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
                 {editing ? 'Edit Expense' : 'Log Expense'}
@@ -319,8 +319,8 @@ export default function ExpensesPage() {
 
       {/* Budget Modal */}
       {showBudget && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#111] border border-[#222] rounded-2xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end md:items-center justify-center md:p-4">
+          <div className="bg-[#111] border border-[#222] rounded-t-2xl md:rounded-2xl p-6 w-full md:max-w-md max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Monthly Budgets</h2>
               <button onClick={() => setShowBudget(false)} className="text-[#555] hover:text-white"><X size={18} /></button>

@@ -29,6 +29,7 @@
     "runable-website-runtime": "^0.0.14",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
+    "vite-plugin-pwa": "^1.2.0",
     "wouter": "^3.9.0",
     "zod": "^4.3.6"
   },

@@ -118,7 +118,7 @@ export default function JournalPage() {
   );
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
@@ -243,8 +243,8 @@ export default function JournalPage() {
 
       {/* Write modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#111] border border-[#222] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end md:items-center justify-center md:p-4">
+          <div className="bg-[#111] border border-[#222] rounded-t-2xl md:rounded-2xl w-full md:max-w-2xl max-h-[95dvh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-[#1f1f1f]">
               <h2 className="text-xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
                 {editing ? 'Edit Entry' : 'New Journal Entry'}

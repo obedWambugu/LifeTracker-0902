@@ -121,9 +121,9 @@ export default function HabitsPage() {
   );
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between mb-6 md:mb-8">
         <div>
           <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Habits</h1>
           <p className="text-[#555] mt-1">Track your daily routines</p>
@@ -138,7 +138,7 @@ export default function HabitsPage() {
 
       {/* Summary */}
       {totalHabits > 0 && (
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
           {[
             { label: "Today's Progress", value: `${completedToday}/${totalHabits}`, color: '#00ff88' },
             { label: 'Total Habits', value: totalHabits, color: '#5352ed' },
@@ -175,12 +175,12 @@ export default function HabitsPage() {
             const rate = getCompletionRate(habit.id);
             const color = CATEGORY_COLORS[habit.category] || '#888';
             return (
-              <div key={habit.id} className={`bg-[#111] border rounded-xl p-5 transition-all ${done ? 'border-[#00ff88]/20' : 'border-[#1f1f1f] hover:border-[#2a2a2a]'}`}>
-                <div className="flex items-start gap-4">
-                  <button onClick={() => toggleHabit(habit.id)} className="mt-0.5 flex-shrink-0">
+              <div key={habit.id} className={`bg-[#111] border rounded-xl p-4 md:p-5 transition-all ${done ? 'border-[#00ff88]/20' : 'border-[#1f1f1f] hover:border-[#2a2a2a]'}`}>
+                <div className="flex items-start gap-3 md:gap-4">
+                  <button onClick={() => toggleHabit(habit.id)} className="mt-0.5 flex-shrink-0 p-1 -m-1 active:scale-90 transition-transform">
                     {done
-                      ? <CheckCircle2 size={22} className="text-[#00ff88]" />
-                      : <Circle size={22} className="text-[#333] hover:text-[#555] transition-colors" />
+                      ? <CheckCircle2 size={26} className="text-[#00ff88]" />
+                      : <Circle size={26} className="text-[#333] hover:text-[#555] transition-colors" />
                     }
                   </button>
                   <div className="flex-1 min-w-0">
@@ -238,10 +238,10 @@ export default function HabitsPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal — bottom sheet on mobile, centered on desktop */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#111] border border-[#222] rounded-2xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end md:items-center justify-center md:p-4">
+          <div className="bg-[#111] border border-[#222] rounded-t-2xl md:rounded-2xl p-6 w-full md:max-w-md max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
                 {editing ? 'Edit Habit' : 'New Habit'}

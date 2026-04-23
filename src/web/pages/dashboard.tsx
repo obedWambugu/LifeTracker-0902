@@ -64,17 +64,17 @@ export default function Dashboard() {
   const moodInfo = mood ? moodEmoji[mood] : null;
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-8 animate-fade-in">
+      <div className="mb-6 animate-fade-in">
         <p className="text-[#555] text-sm mb-1">{format(new Date(), 'EEEE, MMMM d')}</p>
-        <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
+        <h1 className="text-2xl md:text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
           {greeting}, <span className="text-[#00ff88]">{user?.name?.split(' ')[0]}</span>
         </h1>
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8 overflow-hidden">
         {[
           {
             label: 'Habits Today',
@@ -109,20 +109,20 @@ export default function Dashboard() {
             delay: 'animate-delay-4',
           },
         ].map((stat) => (
-          <div key={stat.label} className={`bg-[#111] border border-[#1f1f1f] rounded-xl p-5 animate-fade-in ${stat.delay}`}>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[#555] text-xs uppercase tracking-wider">{stat.label}</p>
-              <span style={{ color: stat.color }}>{stat.icon}</span>
+          <div key={stat.label} className={`bg-[#111] border border-[#1f1f1f] rounded-xl p-4 md:p-5 animate-fade-in ${stat.delay} min-w-0`}>
+            <div className="flex items-center justify-between mb-2 md:mb-3">
+              <p className="text-[#555] text-[10px] md:text-xs uppercase tracking-wider truncate pr-1">{stat.label}</p>
+              <span style={{ color: stat.color }} className="shrink-0">{stat.icon}</span>
             </div>
-            <p className="text-2xl font-bold text-white font-mono" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+            <p className="text-xl md:text-2xl font-bold text-white truncate" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
               {stat.value}
             </p>
-            <p className="text-[#555] text-xs mt-1">{stat.sub}</p>
+            <p className="text-[#555] text-xs mt-1 truncate">{stat.sub}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Today's Habits */}
         <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-6 animate-fade-in animate-delay-2">
           <div className="flex items-center justify-between mb-5">
@@ -149,7 +149,7 @@ export default function Dashboard() {
                   <button
                     key={habit.id}
                     onClick={() => toggleHabit(habit.id)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-[#1a1a1a] transition-all group"
+                    className="w-full flex items-center gap-3 p-3 md:p-3 rounded-lg hover:bg-[#1a1a1a] active:bg-[#1f1f1f] transition-all group min-h-[52px]"
                   >
                     {done
                       ? <CheckCircle2 size={20} className="text-[#00ff88] check-pop flex-shrink-0" />
