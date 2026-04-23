@@ -221,14 +221,18 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <div className="mb-6 rounded-2xl border border-[#1f1f1f] bg-gradient-to-br from-[#00ff88]/5 via-[#111] to-[#5352ed]/5 p-5 md:p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="relative mb-6 overflow-hidden rounded-[28px] border border-[#232323] bg-gradient-to-br from-[#00ff88]/8 via-[#111] to-[#5352ed]/8 p-5 md:mb-8 md:p-6">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -right-20 -top-24 h-48 w-48 rounded-full bg-[#00ff88]/10 blur-3xl" />
+          <div className="absolute -bottom-24 -left-16 h-48 w-48 rounded-full bg-[#5352ed]/10 blur-3xl" />
+        </div>
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="max-w-2xl">
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#00ff88]/20 bg-[#00ff88]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00ff88]">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#00ff88]/20 bg-[#00ff88]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#00ff88]">
               <Sparkles size={12} />
               One-tap daily check-in
             </div>
-            <h2 className="text-xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
+            <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
               Log today in 10 seconds
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-[#888]">
@@ -242,7 +246,7 @@ export default function Dashboard() {
           </div>
           <button
             onClick={() => setShowCheckIn(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00ff88] px-5 py-3 text-sm font-semibold text-[#080808] transition-colors hover:bg-[#00cc6a]"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00ff88] px-5 py-3 text-sm font-semibold text-[#080808] shadow-[0_12px_30px_rgba(0,255,136,0.18)] transition-colors hover:bg-[#00cc6a]"
           >
             <Sparkles size={14} />
             {data?.dailyCheckIn ? 'Update check-in' : 'Quick check-in'}
@@ -271,7 +275,7 @@ export default function Dashboard() {
 
       {showAds && <AdBanner slot="dashboard-top" className="mb-6 md:mb-8" />}
 
-      <div className="mb-6 md:mb-8 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="mb-6 grid gap-4 xl:grid-cols-[1.05fr_0.95fr] xl:items-start md:mb-8">
         <WeeklyReportCard
           report={weeklyReport}
           loading={loading && !weeklyReport}
