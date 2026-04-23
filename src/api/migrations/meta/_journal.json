@@ -8,6 +8,13 @@
       "when": 1776929492425,
       "tag": "0000_mushy_next_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1776937741589,
+      "tag": "0001_illegal_black_bolt",
+      "breakpoints": true
     }
   ]
 }

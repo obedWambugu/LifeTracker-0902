@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Plus, CheckCircle2, Circle, Trash2, Edit2, X, Flame, BarChart2, TrendingUp } from 'lucide-react';
+import { Plus, CheckCircle2, Circle, Trash2, Edit2, X, Flame, BarChart2, Snowflake } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subDays, eachDayOfInterval } from 'date-fns';
 
-const CATEGORIES = ['Health', 'Productivity', 'Learning', 'Fitness', 'Mindfulness', 'Other'];
+const CATEGORIES = ['Health', 'Productivity', 'Learning', 'Fitness', 'Mindfulness', 'Wellness', 'Other'];
 const FREQUENCIES = ['daily', 'weekly'];
 const CATEGORY_COLORS: Record<string, string> = {
   Health: '#00ff88',
@@ -12,6 +12,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Learning: '#ffa502',
   Fitness: '#00d2d3',
   Mindfulness: '#ff6b81',
+  Wellness: '#a29bfe',
   Other: '#888',
 };
 
@@ -43,6 +44,7 @@ export default function HabitsPage() {
   useEffect(() => { load(); }, []);
 
   const todayCompletedIds = completions.filter((c: any) => c.date === today).map((c: any) => c.habitId);
+  const todayFreezeIds = completions.filter((c: any) => c.date === today && c.isFreezeDay).map((c: any) => c.habitId);
 
   const getStreak = (habitId: string) => {
     const dates = completions.filter((c: any) => c.habitId === habitId).map((c: any) => c.date).sort().reverse();
@@ -63,7 +65,6 @@ export default function HabitsPage() {
     return relevant.length > 0 ? Math.round((relevant.length / 30) * 100) : 0;
   };
 
-  // Last 7 days heat map
   const last7 = eachDayOfInterval({ start: subDays(new Date(), 6), end: new Date() });
 
   const toggleHabit = async (id: string) => {
@@ -72,6 +73,16 @@ export default function HabitsPage() {
       load();
     } catch (e: any) {
       toast.error(e.message);
+    }
+  };
+
+  const freezeHabit = async (id: string) => {
+    try {
+      const res = await api.post(`/habits/${id}/freeze`, { date: today });
+      toast.success(`Streak frozen! ${res.freezesRemaining} freezes left this week.`);
+      load();
+    } catch (e: any) {
+      toast.error(e.message || 'No freezes left this week');
     }
   };
 
@@ -121,7 +132,7 @@ export default function HabitsPage() {
   );
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto pb-24">
       {/* Header */}
       <div className="flex items-start justify-between mb-6 md:mb-8">
         <div>
@@ -160,10 +171,7 @@ export default function HabitsPage() {
           </div>
           <h3 className="text-white font-bold text-xl mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>No habits yet</h3>
           <p className="text-[#555] mb-6">Start building positive routines</p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 bg-[#00ff88] text-[#080808] px-6 py-3 rounded-lg font-semibold hover:bg-[#00cc6a] transition-colors"
-          >
+          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 bg-[#00ff88] text-[#080808] px-6 py-3 rounded-lg font-semibold hover:bg-[#00cc6a] transition-colors">
             <Plus size={15} /> Create your first habit
           </button>
         </div>
@@ -171,24 +179,33 @@ export default function HabitsPage() {
         <div className="space-y-3">
           {habits.map((habit) => {
             const done = todayCompletedIds.includes(habit.id);
+            const isFrozen = todayFreezeIds.includes(habit.id);
             const streak = getStreak(habit.id);
             const rate = getCompletionRate(habit.id);
             const color = CATEGORY_COLORS[habit.category] || '#888';
+
             return (
-              <div key={habit.id} className={`bg-[#111] border rounded-xl p-4 md:p-5 transition-all ${done ? 'border-[#00ff88]/20' : 'border-[#1f1f1f] hover:border-[#2a2a2a]'}`}>
+              <div key={habit.id} className={`bg-[#111] border rounded-xl p-4 md:p-5 transition-all ${done ? (isFrozen ? 'border-[#70a1ff]/30' : 'border-[#00ff88]/20') : 'border-[#1f1f1f] hover:border-[#2a2a2a]'}`}>
                 <div className="flex items-start gap-3 md:gap-4">
                   <button onClick={() => toggleHabit(habit.id)} className="mt-0.5 flex-shrink-0 p-1 -m-1 active:scale-90 transition-transform">
                     {done
-                      ? <CheckCircle2 size={26} className="text-[#00ff88]" />
+                      ? (isFrozen
+                          ? <Snowflake size={26} className="text-[#70a1ff]" />
+                          : <CheckCircle2 size={26} className="text-[#00ff88]" />)
                       : <Circle size={26} className="text-[#333] hover:text-[#555] transition-colors" />
                     }
                   </button>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className={`font-semibold ${done ? 'text-[#555] line-through' : 'text-white'}`}>{habit.name}</h3>
                       <span className="text-xs px-2 py-0.5 rounded-full border" style={{ color, borderColor: `${color}33`, background: `${color}11` }}>
                         {habit.category}
                       </span>
+                      {isFrozen && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-[#70a1ff]/10 text-[#70a1ff] border border-[#70a1ff]/20">
+                          Frozen
+                        </span>
+                      )}
                     </div>
                     {habit.description && <p className="text-[#555] text-xs mb-3">{habit.description}</p>}
 
@@ -196,14 +213,20 @@ export default function HabitsPage() {
                     <div className="flex items-center gap-1 mt-3">
                       {last7.map(d => {
                         const dateStr = format(d, 'yyyy-MM-dd');
-                        const completed = completions.some((c: any) => c.habitId === habit.id && c.date === dateStr);
+                        const completed = completions.some((c: any) => c.habitId === habit.id && c.date === dateStr && !c.isFreezeDay);
+                        const frozen = completions.some((c: any) => c.habitId === habit.id && c.date === dateStr && c.isFreezeDay);
                         return (
                           <div
                             key={dateStr}
-                            title={format(d, 'EEE, MMM d')}
-                            className="w-6 h-6 rounded-md transition-all"
-                            style={{ background: completed ? color : '#1a1a1a', opacity: completed ? 1 : 0.5 }}
-                          />
+                            title={`${format(d, 'EEE, MMM d')}${frozen ? ' (frozen)' : completed ? ' (completed)' : ''}`}
+                            className="w-6 h-6 rounded-md transition-all flex items-center justify-center"
+                            style={{
+                              background: frozen ? '#70a1ff33' : completed ? color : '#1a1a1a',
+                              opacity: (completed || frozen) ? 1 : 0.5
+                            }}
+                          >
+                            {frozen && <Snowflake size={10} className="text-[#70a1ff]" />}
+                          </div>
                         );
                       })}
                       <span className="text-[#444] text-xs ml-2">7 days</span>
@@ -223,7 +246,17 @@ export default function HabitsPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    {/* Freeze button - only show if not completed and not already frozen today */}
+                    {!done && (
+                      <button
+                        onClick={() => freezeHabit(habit.id)}
+                        title="Use streak freeze"
+                        className="text-[#70a1ff]/50 hover:text-[#70a1ff] transition-colors p-1"
+                      >
+                        <Snowflake size={14} />
+                      </button>
+                    )}
                     <button onClick={() => openEdit(habit)} className="text-[#444] hover:text-[#888] transition-colors p-1">
                       <Edit2 size={14} />
                     </button>
@@ -238,7 +271,7 @@ export default function HabitsPage() {
         </div>
       )}
 
-      {/* Modal — bottom sheet on mobile, centered on desktop */}
+      {/* Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end md:items-center justify-center md:p-4">
           <div className="bg-[#111] border border-[#222] rounded-t-2xl md:rounded-2xl p-6 w-full md:max-w-md max-h-[90dvh] overflow-y-auto">
@@ -246,9 +279,7 @@ export default function HabitsPage() {
               <h2 className="text-xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>
                 {editing ? 'Edit Habit' : 'New Habit'}
               </h2>
-              <button onClick={() => { setShowForm(false); setEditing(null); }} className="text-[#555] hover:text-white">
-                <X size={18} />
-              </button>
+              <button onClick={() => { setShowForm(false); setEditing(null); }} className="text-[#555] hover:text-white"><X size={18} /></button>
             </div>
             <form onSubmit={saveHabit} className="space-y-4">
               <div>
@@ -274,12 +305,8 @@ export default function HabitsPage() {
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setShowForm(false); setEditing(null); }} className="flex-1 py-3 rounded-lg border border-[#222] text-[#888] hover:text-white hover:border-[#333] transition-colors text-sm">
-                  Cancel
-                </button>
-                <button type="submit" className="flex-1 py-3 rounded-lg bg-[#00ff88] text-[#080808] font-semibold hover:bg-[#00cc6a] transition-colors text-sm">
-                  {editing ? 'Update' : 'Create'}
-                </button>
+                <button type="button" onClick={() => { setShowForm(false); setEditing(null); }} className="flex-1 py-3 rounded-lg border border-[#222] text-[#888] hover:text-white hover:border-[#333] transition-colors text-sm">Cancel</button>
+                <button type="submit" className="flex-1 py-3 rounded-lg bg-[#00ff88] text-[#080808] font-semibold hover:bg-[#00cc6a] transition-colors text-sm">{editing ? 'Update' : 'Create'}</button>
               </div>
             </form>
           </div>

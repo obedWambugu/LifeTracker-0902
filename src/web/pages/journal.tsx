@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Plus, X, Search, Trash2, Edit2, Tag, BookOpen } from 'lucide-react';
+import { Plus, X, Search, Trash2, Edit2, BookOpen, Sparkles, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useSearch } from 'wouter';
+import { PROMPTS, PROMPT_CATEGORIES, getRandomPrompt, getDailyPrompt, type Prompt } from '../lib/prompts';
 
 const MOODS = [
   { value: 'excellent', label: 'Excellent', emoji: '😄', color: '#00ff88' },
@@ -12,26 +14,28 @@ const MOODS = [
   { value: 'terrible', label: 'Terrible', emoji: '😞', color: '#ff4757' },
 ];
 
-const PROMPTS = [
-  "What are three things you're grateful for today?",
-  "What was the highlight of your day?",
-  "What's one thing you could have done better?",
-  "How are you feeling right now, and why?",
-  "What did you learn today?",
-  "What are you looking forward to tomorrow?",
-  "Describe a moment that made you smile today.",
-  "What challenge are you currently facing?",
-];
+const CATEGORY_COLORS: Record<string, string> = {
+  gratitude: '#00ff88',
+  reflection: '#5352ed',
+  growth: '#ffa502',
+  mindfulness: '#a29bfe',
+  goals: '#00d2d3',
+  relationships: '#ff6b81',
+};
 
 export default function JournalPage() {
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showPrompts, setShowPrompts] = useState(false);
   const [viewing, setViewing] = useState<any>(null);
   const [editing, setEditing] = useState<any>(null);
   const [search, setSearch] = useState('');
   const [tagInput, setTagInput] = useState('');
-  const [form, setForm] = useState({ title: '', content: '', mood: 'neutral', tags: [] as string[] });
+  const [promptFilter, setPromptFilter] = useState<string>('');
+  const [form, setForm] = useState({ title: '', content: '', mood: 'neutral', tags: [] as string[], promptId: null as number | null });
+
+  const searchStr = useSearch();
 
   const load = async (q?: string) => {
     try {
@@ -45,7 +49,21 @@ export default function JournalPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // Check URL params for new entry with prompt
+    const params = new URLSearchParams(searchStr);
+    if (params.get('new') === '1') {
+      setShowForm(true);
+      const promptId = params.get('prompt');
+      if (promptId) {
+        const prompt = PROMPTS.find(p => p.id === parseInt(promptId));
+        if (prompt) {
+          setForm(f => ({ ...f, content: prompt.text + '\n\n', promptId: prompt.id }));
+        }
+      }
+    }
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +83,7 @@ export default function JournalPage() {
       }
       setShowForm(false);
       setEditing(null);
-      setForm({ title: '', content: '', mood: 'neutral', tags: [] });
+      setForm({ title: '', content: '', mood: 'neutral', tags: [], promptId: null });
       load();
     } catch (e: any) {
       toast.error(e.message);
@@ -86,7 +104,7 @@ export default function JournalPage() {
 
   const openEdit = (entry: any) => {
     setEditing(entry);
-    setForm({ title: entry.title || '', content: entry.content, mood: entry.mood, tags: entry.tags ? JSON.parse(entry.tags) : [] });
+    setForm({ title: entry.title || '', content: entry.content, mood: entry.mood, tags: entry.tags ? JSON.parse(entry.tags) : [], promptId: entry.promptId || null });
     setViewing(null);
     setShowForm(true);
   };
@@ -104,12 +122,19 @@ export default function JournalPage() {
 
   const removeTag = (tag: string) => setForm({ ...form, tags: form.tags.filter(t => t !== tag) });
 
-  const applyPrompt = () => {
-    const p = PROMPTS[Math.floor(Math.random() * PROMPTS.length)];
-    setForm({ ...form, content: form.content ? `${form.content}\n\n${p}\n` : `${p}\n` });
+  const usePrompt = (prompt: Prompt) => {
+    setForm({ ...form, content: form.content ? `${form.content}\n\n${prompt.text}\n` : `${prompt.text}\n\n`, promptId: prompt.id });
+    setShowPrompts(false);
+    toast.success('Prompt added!');
+  };
+
+  const applyRandomPrompt = () => {
+    const p = getRandomPrompt(promptFilter || undefined);
+    usePrompt(p);
   };
 
   const moodCounts = MOODS.map(m => ({ ...m, count: entries.filter(e => e.mood === m.value).length }));
+  const filteredPrompts = promptFilter ? PROMPTS.filter(p => p.category === promptFilter) : PROMPTS;
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
@@ -118,21 +143,82 @@ export default function JournalPage() {
   );
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto pb-24">
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Journal</h1>
           <p className="text-[#555] mt-1">Reflect and grow</p>
         </div>
-        <button onClick={() => { setShowForm(true); setEditing(null); setForm({ title: '', content: '', mood: 'neutral', tags: [] }); }} className="flex items-center gap-2 bg-[#ffa502] text-[#080808] px-4 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#e09500] transition-colors">
-          <Plus size={15} /> New Entry
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowPrompts(!showPrompts)} className="flex items-center gap-2 border border-[#ffa502]/30 text-[#ffa502] px-3 py-2.5 rounded-lg text-sm hover:bg-[#ffa502]/10 transition-colors">
+            <Sparkles size={15} /> Prompts
+          </button>
+          <button onClick={() => { setShowForm(true); setEditing(null); setForm({ title: '', content: '', mood: 'neutral', tags: [], promptId: null }); }} className="flex items-center gap-2 bg-[#ffa502] text-[#080808] px-4 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#e09500] transition-colors">
+            <Plus size={15} /> New Entry
+          </button>
+        </div>
       </div>
+
+      {/* Prompts Library Panel */}
+      {showPrompts && (
+        <div className="mb-6 bg-[#111] border border-[#ffa502]/20 rounded-xl p-5 animate-fade-in">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="text-[#ffa502]" />
+              <h3 className="text-white font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif' }}>Prompts Library</h3>
+              <span className="text-[#555] text-xs">({filteredPrompts.length} prompts)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={applyRandomPrompt} className="flex items-center gap-1 text-[#ffa502] text-xs hover:underline">
+                <RefreshCw size={12} /> Random
+              </button>
+              <button onClick={() => setShowPrompts(false)} className="text-[#555] hover:text-white"><X size={16} /></button>
+            </div>
+          </div>
+
+          {/* Category filter */}
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
+            <button onClick={() => setPromptFilter('')} className={`px-3 py-1.5 rounded-lg text-xs flex-shrink-0 transition-colors ${!promptFilter ? 'bg-[#ffa502]/20 text-[#ffa502]' : 'bg-[#1a1a1a] text-[#555] hover:text-white'}`}>
+              All
+            </button>
+            {PROMPT_CATEGORIES.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setPromptFilter(cat === promptFilter ? '' : cat)}
+                className={`px-3 py-1.5 rounded-lg text-xs capitalize flex-shrink-0 transition-colors ${promptFilter === cat ? 'text-white' : 'text-[#555] hover:text-white'}`}
+                style={{ background: promptFilter === cat ? `${CATEGORY_COLORS[cat]}33` : '#1a1a1a' }}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Prompts grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">
+            {filteredPrompts.map(prompt => (
+              <button
+                key={prompt.id}
+                onClick={() => {
+                  setShowForm(true);
+                  setEditing(null);
+                  usePrompt(prompt);
+                }}
+                className="text-left p-3 rounded-lg bg-[#0d0d0d] hover:bg-[#1a1a1a] border border-[#1a1a1a] hover:border-[#333] transition-all group"
+              >
+                <p className="text-[#ccc] text-sm group-hover:text-white transition-colors">"{prompt.text}"</p>
+                <span className="text-xs capitalize mt-1 inline-block" style={{ color: CATEGORY_COLORS[prompt.category] || '#555' }}>
+                  {prompt.category}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Mood stats */}
       {entries.length > 0 && (
-        <div className="flex gap-3 mb-6 overflow-x-auto pb-1">
+        <div className="flex gap-3 mb-6 overflow-x-auto pb-1 scrollbar-hide">
           {moodCounts.map(m => m.count > 0 && (
             <div key={m.value} className="flex items-center gap-2 bg-[#111] border border-[#1f1f1f] rounded-xl px-4 py-2.5 flex-shrink-0">
               <span className="text-lg">{m.emoji}</span>
@@ -161,7 +247,6 @@ export default function JournalPage() {
 
       {/* Two-column layout */}
       <div className={`grid gap-6 ${viewing ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
-        {/* Entries list */}
         <div>
           {entries.length === 0 ? (
             <div className="text-center py-20">
@@ -184,13 +269,16 @@ export default function JournalPage() {
                   <div
                     key={entry.id}
                     onClick={() => setViewing(isActive ? null : entry)}
-                    className={`bg-[#111] border rounded-xl p-5 cursor-pointer transition-all ${isActive ? 'border-[#ffa502]/30 bg-[#111]' : 'border-[#1f1f1f] hover:border-[#2a2a2a]'}`}
+                    className={`bg-[#111] border rounded-xl p-5 cursor-pointer transition-all ${isActive ? 'border-[#ffa502]/30' : 'border-[#1f1f1f] hover:border-[#2a2a2a]'}`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-lg">{mood?.emoji}</span>
                           <h3 className="text-white font-semibold text-sm truncate">{entry.title || 'Untitled'}</h3>
+                          {entry.promptId && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ffa502]/10 text-[#ffa502]">prompted</span>
+                          )}
                         </div>
                         <p className="text-[#555] text-xs line-clamp-2 mb-3">{entry.content}</p>
                         <div className="flex items-center gap-3">
@@ -216,7 +304,6 @@ export default function JournalPage() {
           )}
         </div>
 
-        {/* Entry viewer */}
         {viewing && (
           <div className="bg-[#111] border border-[#ffa502]/20 rounded-xl p-6 sticky top-6 h-fit">
             <div className="flex items-center justify-between mb-4">
@@ -251,25 +338,20 @@ export default function JournalPage() {
               </h2>
               <div className="flex items-center gap-3">
                 {!editing && (
-                  <button type="button" onClick={applyPrompt} className="text-[#ffa502] text-xs hover:underline">
-                    Get a prompt
+                  <button type="button" onClick={applyRandomPrompt} className="text-[#ffa502] text-xs hover:underline flex items-center gap-1">
+                    <Sparkles size={12} /> Random prompt
                   </button>
                 )}
                 <button onClick={() => { setShowForm(false); setEditing(null); }} className="text-[#555] hover:text-white"><X size={18} /></button>
               </div>
             </div>
             <form onSubmit={saveEntry} className="p-6 space-y-4">
-              {/* Mood picker */}
               <div>
                 <label className="block text-sm text-[#888] mb-2">How are you feeling?</label>
                 <div className="flex gap-2">
                   {MOODS.map(m => (
-                    <button
-                      key={m.value}
-                      type="button"
-                      onClick={() => setForm({ ...form, mood: m.value })}
-                      className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl transition-all flex-1 ${form.mood === m.value ? 'bg-[#1a1a1a] border border-[#333] scale-105' : 'border border-transparent hover:bg-[#151515]'}`}
-                    >
+                    <button key={m.value} type="button" onClick={() => setForm({ ...form, mood: m.value })}
+                      className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl transition-all flex-1 ${form.mood === m.value ? 'bg-[#1a1a1a] border border-[#333] scale-105' : 'border border-transparent hover:bg-[#151515]'}`}>
                       <span className="text-xl">{m.emoji}</span>
                       <span className="text-xs" style={{ color: form.mood === m.value ? m.color : '#555' }}>{m.label}</span>
                     </button>
@@ -284,25 +366,14 @@ export default function JournalPage() {
 
               <div>
                 <label className="block text-sm text-[#888] mb-1.5">Write it out</label>
-                <textarea
-                  value={form.content}
-                  onChange={e => setForm({ ...form, content: e.target.value })}
-                  placeholder="What's on your mind today?..."
-                  rows={8}
-                  required
-                  className="w-full bg-[#0d0d0d] border border-[#222] rounded-lg px-4 py-3 text-white placeholder-[#444] focus:outline-none focus:border-[#ffa502] transition-colors resize-none text-sm leading-relaxed"
-                />
+                <textarea value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} placeholder="What's on your mind today?..." rows={8} required
+                  className="w-full bg-[#0d0d0d] border border-[#222] rounded-lg px-4 py-3 text-white placeholder-[#444] focus:outline-none focus:border-[#ffa502] transition-colors resize-none text-sm leading-relaxed" />
               </div>
 
               <div>
                 <label className="block text-sm text-[#888] mb-1.5">Tags <span className="text-[#444]">(press Enter to add)</span></label>
-                <input
-                  value={tagInput}
-                  onChange={e => setTagInput(e.target.value)}
-                  onKeyDown={addTag}
-                  placeholder="gratitude, work, health..."
-                  className="w-full bg-[#0d0d0d] border border-[#222] rounded-lg px-4 py-3 text-white placeholder-[#444] focus:outline-none focus:border-[#ffa502] transition-colors text-sm"
-                />
+                <input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={addTag} placeholder="gratitude, work, health..."
+                  className="w-full bg-[#0d0d0d] border border-[#222] rounded-lg px-4 py-3 text-white placeholder-[#444] focus:outline-none focus:border-[#ffa502] transition-colors text-sm" />
                 {form.tags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {form.tags.map(tag => (
