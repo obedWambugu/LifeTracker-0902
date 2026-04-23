@@ -265,79 +265,118 @@ export default function SettingsPage() {
         </div>
 
         {/* Reminders & Notifications */}
-        <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-[#ffa502]/10 rounded-xl flex items-center justify-center">
-              <Bell size={18} className="text-[#ffa502]" />
-            </div>
-            <h2 className="text-white font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Reminders</h2>
+        <div className="relative overflow-hidden rounded-[28px] border border-[#232323] bg-[#0b0b0b] p-6">
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute -right-20 -top-24 h-52 w-52 rounded-full bg-[#ffa502]/8 blur-3xl" />
+            <div className="absolute -bottom-20 -left-12 h-52 w-52 rounded-full bg-[#5352ed]/8 blur-3xl" />
           </div>
 
-          <div className="mb-4 rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] px-4 py-3 text-xs text-[#666]">
+          <div className="relative flex items-start gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#ffa502]/10">
+              <Bell size={18} className="text-[#ffa502]" />
+            </div>
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#ffa502]/20 bg-[#ffa502]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#ffa502]">
+                Notifications
+              </div>
+              <h2 className="text-white font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Reminders</h2>
+              <p className="mt-1 text-sm text-[#666]">
+                Keep the daily check-in and weekly review feeling like part of the routine.
+              </p>
+            </div>
+          </div>
+
+          <div className="relative mt-5 rounded-2xl border border-[#1d1d1d] bg-[#0d0d0d] px-4 py-3 text-xs text-[#666]">
             <span className="text-[#888]">Browser notifications:</span>{' '}
-            <span className={notificationPermission === 'granted' ? 'text-[#00ff88]' : notificationPermission === 'denied' ? 'text-[#ff6b81]' : 'text-[#ffa502]'}>
+            <span
+              className={`font-semibold ${
+                notificationPermission === 'granted'
+                  ? 'text-[#00ff88]'
+                  : notificationPermission === 'denied'
+                    ? 'text-[#ff6b81]'
+                    : 'text-[#ffa502]'
+              }`}
+            >
               {notificationPermission === 'unsupported' ? 'unsupported' : notificationPermission}
             </span>
           </div>
 
           {prefsLoading ? (
-            <div className="flex items-center justify-center py-6">
-              <div className="w-5 h-5 border-2 border-[#00ff88] border-t-transparent rounded-full animate-spin" />
+            <div className="relative flex items-center justify-center py-8">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#00ff88] border-t-transparent" />
             </div>
           ) : (
-            <div className="space-y-5">
+            <div className="relative space-y-4">
               {/* Daily Reminder Toggle */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-white text-sm font-medium">Daily Reminders</p>
-                  <p className="text-[#555] text-xs mt-0.5">Get a browser reminder to log habits, spending, or a quick check-in</p>
+              <div className="rounded-2xl border border-[#1d1d1d] bg-[#0d0d0d] p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-white">Daily reminders</p>
+                    <p className="mt-0.5 text-xs text-[#666]">
+                      Get a browser reminder to log habits, spending, or a quick check-in.
+                    </p>
+                  </div>
+                  <button
+                    onClick={toggleReminders}
+                    className={`relative h-8 w-14 rounded-full border transition-colors ${
+                      prefs?.remindersEnabled ? 'border-[#00ff88]/30 bg-[#00ff88]' : 'border-[#2a2a2a] bg-[#242424]'
+                    }`}
+                  >
+                    <div
+                      className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-[0_6px_16px_rgba(0,0,0,0.35)] transition-transform ${
+                        prefs?.remindersEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
                 </div>
-                <button
-                  onClick={toggleReminders}
-                  className={`w-12 h-7 rounded-full transition-colors relative ${prefs?.remindersEnabled ? 'bg-[#00ff88]' : 'bg-[#333]'}`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-transform ${prefs?.remindersEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
               </div>
 
               {/* Reminder Time */}
               {prefs?.remindersEnabled && (
-                <div className="pl-0">
-                  <label className="block text-sm text-[#888] mb-1.5">Reminder time</label>
+                <div className="rounded-2xl border border-[#1d1d1d] bg-[#0d0d0d] p-4">
+                  <label className="mb-2 block text-sm text-[#888]">Reminder time</label>
                   <input
                     type="time"
                     value={prefs?.reminderTime || '20:00'}
                     onChange={e => updatePref('reminderTime', e.target.value)}
-                    className="bg-[#0d0d0d] border border-[#222] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#00ff88] transition-colors"
+                    className="rounded-2xl border border-[#222] bg-[#080808] px-4 py-3 text-white transition-colors focus:border-[#00ff88] focus:outline-none"
                   />
                 </div>
               )}
 
               {/* Weekly Report Toggle */}
-              <div className="flex items-center justify-between pt-3 border-t border-[#1a1a1a]">
-                <div>
-                  <p className="text-white text-sm font-medium flex items-center gap-2">
-                    <Mail size={14} className="text-[#5352ed]" /> Weekly Report
-                  </p>
-                  <p className="text-[#555] text-xs mt-0.5">Receive a weekly browser reminder to review your progress</p>
+              <div className="rounded-2xl border border-[#1d1d1d] bg-[#0d0d0d] p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="flex items-center gap-2 text-sm font-medium text-white">
+                      <Mail size={14} className="text-[#5352ed]" /> Weekly report
+                    </p>
+                    <p className="mt-0.5 text-xs text-[#666]">Receive a weekly browser reminder to review your progress.</p>
+                  </div>
+                  <button
+                    onClick={() => updatePref('weeklyReportEnabled', !prefs?.weeklyReportEnabled)}
+                    className={`relative h-8 w-14 rounded-full border transition-colors ${
+                      prefs?.weeklyReportEnabled ? 'border-[#00ff88]/30 bg-[#00ff88]' : 'border-[#2a2a2a] bg-[#242424]'
+                    }`}
+                  >
+                    <div
+                      className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-[0_6px_16px_rgba(0,0,0,0.35)] transition-transform ${
+                        prefs?.weeklyReportEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
                 </div>
-                <button
-                  onClick={() => updatePref('weeklyReportEnabled', !prefs?.weeklyReportEnabled)}
-                  className={`w-12 h-7 rounded-full transition-colors relative ${prefs?.weeklyReportEnabled ? 'bg-[#00ff88]' : 'bg-[#333]'}`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-transform ${prefs?.weeklyReportEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 pt-2">
+              <div className="flex flex-wrap items-center gap-3 pt-1">
                 <button
                   onClick={sendTestReminder}
-                  className="inline-flex items-center gap-2 rounded-lg border border-[#222] px-4 py-2.5 text-xs font-semibold text-[#888] transition-colors hover:border-[#333] hover:text-white"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-[#222] bg-[#0d0d0d] px-4 py-2.5 text-xs font-semibold text-[#aaa] transition-colors hover:border-[#333] hover:text-white"
                 >
                   <Bell size={12} className="text-[#ffa502]" />
                   Send test reminder
                 </button>
-                <p className="text-xs text-[#555]">
+                <p className="text-xs leading-relaxed text-[#666]">
                   This helps us verify your reminder permission before the app starts scheduling them.
                 </p>
               </div>
