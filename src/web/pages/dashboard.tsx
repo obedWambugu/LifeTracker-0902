@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { CheckCircle2, Circle, TrendingUp, BookOpen, Plus, ArrowRight, Smile, Zap, DollarSign, Lightbulb, Sparkles, ChevronRight, Snowflake, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Circle, TrendingUp, BookOpen, Plus, ArrowRight, Smile, Zap, DollarSign, Lightbulb, Sparkles, ChevronRight, Snowflake, RefreshCw, Crown } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { getDailyPrompt, getRandomPrompt, PROMPT_CATEGORIES, type Prompt } from '../lib/prompts';
+import { UpgradeModal, PremiumBadge } from '../components/UpgradeModal';
 
 const moodEmoji: Record<string, { icon: string; color: string; label: string }> = {
   excellent: { icon: '😄', color: '#00ff88', label: 'Excellent' },
@@ -92,13 +93,14 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void; onSkip?: () 
 }
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, isPremium } = useAuth();
   const [, setLocation] = useLocation();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [insights, setInsights] = useState<any[]>([]);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [dailyPrompt, setDailyPrompt] = useState<Prompt>(getDailyPrompt());
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   const load = async () => {
     try {
@@ -184,23 +186,50 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 mb-3">
             <Lightbulb size={16} className="text-[#ffa502]" />
             <h2 className="text-white font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif' }}>Insights</h2>
+            {!isPremium && <PremiumBadge small />}
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
-            {insights.map((insight, i) => (
-              <div key={i} className="min-w-[260px] max-w-[300px] bg-[#111] border border-[#1f1f1f] rounded-xl p-4 flex-shrink-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: insight.color }} />
-                  <p className="text-white text-sm font-semibold">{insight.title}</p>
+          {!isPremium ? (
+            <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#00ff88]/10 rounded-xl flex items-center justify-center">
+                  <Crown size={18} className="text-[#00ff88]" />
                 </div>
-                <p className="text-[#888] text-xs leading-relaxed">{insight.description}</p>
+                <div>
+                  <p className="text-white text-sm font-semibold">Unlock correlation insights</p>
+                  <p className="text-[#555] text-xs">See how your habits affect spending & mood</p>
+                </div>
               </div>
-            ))}
-          </div>
+              <button onClick={() => setShowUpgrade(true)} className="bg-[#00ff88] text-[#080808] px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#00cc6a] transition-colors flex-shrink-0">
+                Upgrade
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
+              {insights.map((insight, i) => (
+                <div key={i} className="min-w-[260px] max-w-[300px] bg-[#111] border border-[#1f1f1f] rounded-xl p-4 flex-shrink-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: insight.color }} />
+                    <p className="text-white text-sm font-semibold">{insight.title}</p>
+                  </div>
+                  <p className="text-[#888] text-xs leading-relaxed">{insight.description}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {/* Prompt of the Day */}
-      <div className="mb-6 md:mb-8 bg-gradient-to-r from-[#ffa502]/5 to-[#ff6b81]/5 border border-[#ffa502]/20 rounded-xl p-5 animate-fade-in animate-delay-3">
+      <div className="mb-6 md:mb-8 bg-gradient-to-r from-[#ffa502]/5 to-[#ff6b81]/5 border border-[#ffa502]/20 rounded-xl p-5 animate-fade-in animate-delay-3 relative">
+        {!isPremium && (
+          <div className="absolute inset-0 bg-[#080808]/70 backdrop-blur-[2px] rounded-xl z-10 flex flex-col items-center justify-center gap-2">
+            <Crown size={20} className="text-[#ffa502]" />
+            <p className="text-white text-sm font-semibold">Journal Prompts — Pro</p>
+            <button onClick={() => setShowUpgrade(true)} className="bg-[#ffa502] text-[#080808] px-4 py-2 rounded-lg text-xs font-semibold hover:bg-[#e09500] transition-colors">
+              Upgrade
+            </button>
+          </div>
+        )}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-[#ffa502]" />
@@ -357,6 +386,8 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
     </div>
   );
 }

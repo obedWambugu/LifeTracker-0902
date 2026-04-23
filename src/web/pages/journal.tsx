@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Plus, X, Search, Trash2, Edit2, BookOpen, Sparkles, RefreshCw, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
+import { Plus, X, Search, Trash2, Edit2, BookOpen, Sparkles, RefreshCw, ChevronDown, ChevronUp, CheckCircle2, Crown } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '../lib/auth';
+import { UpgradeModal } from '../components/UpgradeModal';
 import { format } from 'date-fns';
 import { useSearch } from 'wouter';
 import { PROMPTS, PROMPT_CATEGORIES, getRandomPrompt, getDailyPrompt, type Prompt } from '../lib/prompts';
@@ -24,7 +26,9 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function JournalPage() {
+  const { isPremium } = useAuth();
   const [entries, setEntries] = useState<any[]>([]);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showPrompts, setShowPrompts] = useState(false);
@@ -189,8 +193,8 @@ export default function JournalPage() {
               {selectMode ? 'Cancel' : 'Select'}
             </button>
           )}
-          <button onClick={() => setShowPrompts(!showPrompts)} className="flex items-center gap-2 border border-[#ffa502]/30 text-[#ffa502] px-3 py-2.5 rounded-lg text-sm hover:bg-[#ffa502]/10 transition-colors">
-            <Sparkles size={15} /> Prompts
+          <button onClick={() => isPremium ? setShowPrompts(!showPrompts) : setShowUpgrade(true)} className={`flex items-center gap-2 border px-3 py-2.5 rounded-lg text-sm transition-colors ${isPremium ? 'border-[#ffa502]/30 text-[#ffa502] hover:bg-[#ffa502]/10' : 'border-[#333] text-[#555] hover:text-[#888]'}`}>
+            {isPremium ? <Sparkles size={15} /> : <Crown size={15} />} Prompts
           </button>
           <button onClick={() => { setShowForm(true); setEditing(null); setForm({ title: '', content: '', mood: 'neutral', tags: [], promptId: null }); }} className="flex items-center gap-2 bg-[#ffa502] text-[#080808] px-4 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#e09500] transition-colors">
             <Plus size={15} /> New Entry
@@ -406,7 +410,7 @@ export default function JournalPage() {
                 {editing ? 'Edit Entry' : 'New Journal Entry'}
               </h2>
               <div className="flex items-center gap-3">
-                {!editing && (
+                {!editing && isPremium && (
                   <button type="button" onClick={applyRandomPrompt} className="text-[#ffa502] text-xs hover:underline flex items-center gap-1">
                     <Sparkles size={12} /> Random prompt
                   </button>
@@ -463,6 +467,8 @@ export default function JournalPage() {
           </div>
         </div>
       )}
+
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
     </div>
   );
 }

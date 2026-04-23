@@ -45,7 +45,7 @@ app.post('/auth/register', async (c) => {
     await db.insert(users).values({ id, email, name, passwordHash });
     const secret = c.env.JWT_SECRET || 'life-tracker-secret-2024';
     const token = await sign({ userId: id, email, exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30 }, secret);
-    return c.json({ token, user: { id, email, name, onboarded: false } });
+    return c.json({ token, user: { id, email, name, onboarded: false, isPremium: false, premiumUntil: null } });
   } catch (e: any) {
     return c.json({ error: e.message }, 500);
   }
@@ -61,7 +61,8 @@ app.post('/auth/login', async (c) => {
     if (!valid) return c.json({ error: 'Invalid credentials' }, 401);
     const secret = c.env.JWT_SECRET || 'life-tracker-secret-2024';
     const token = await sign({ userId: user.id, email: user.email, exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30 }, secret);
-    return c.json({ token, user: { id: user.id, email: user.email, name: user.name, onboarded: user.onboarded } });
+    const premiumActive = user.isPremium && (!user.premiumUntil || new Date(user.premiumUntil) > new Date());
+    return c.json({ token, user: { id: user.id, email: user.email, name: user.name, onboarded: user.onboarded, isPremium: premiumActive, premiumUntil: user.premiumUntil } });
   } catch (e: any) {
     return c.json({ error: e.message }, 500);
   }
@@ -69,10 +70,48 @@ app.post('/auth/login', async (c) => {
 
 app.get('/auth/profile', authMiddleware, async (c) => {
   const db = drizzle(c.env.DB);
-  const user = await db.select({ id: users.id, email: users.email, name: users.name, onboarded: users.onboarded, createdAt: users.createdAt })
+  const user = await db.select({ id: users.id, email: users.email, name: users.name, onboarded: users.onboarded, isPremium: users.isPremium, premiumUntil: users.premiumUntil, createdAt: users.createdAt })
     .from(users).where(eq(users.id, c.get('userId'))).get();
   if (!user) return c.json({ error: 'Not found' }, 404);
-  return c.json(user);
+  const premiumActive = user.isPremium && (!user.premiumUntil || new Date(user.premiumUntil) > new Date());
+  return c.json({ ...user, isPremium: premiumActive });
+});
+
+// ─── ADMIN: TOGGLE PREMIUM ──────────────────────────────────────────────────
+
+app.post('/admin/set-premium', async (c) => {
+  const db = drizzle(c.env.DB);
+  const adminKey = c.req.header('X-Admin-Key');
+  const secret = c.env.JWT_SECRET || 'life-tracker-secret-2024';
+  if (adminKey !== secret) return c.json({ error: 'Unauthorized' }, 401);
+
+  const { email, isPremium, months } = await c.req.json();
+  if (!email) return c.json({ error: 'Email required' }, 400);
+
+  const user = await db.select().from(users).where(eq(users.email, email)).get();
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const premiumUntil = isPremium !== false
+    ? new Date(Date.now() + (months || 1) * 30 * 86400000).toISOString()
+    : null;
+
+  await db.update(users).set({
+    isPremium: isPremium !== false,
+    premiumUntil,
+  }).where(eq(users.id, user.id));
+
+  return c.json({ success: true, email, isPremium: isPremium !== false, premiumUntil });
+});
+
+// ─── SUBSCRIPTION STATUS ────────────────────────────────────────────────────
+
+app.get('/subscription', authMiddleware, async (c) => {
+  const db = drizzle(c.env.DB);
+  const userId = c.get('userId');
+  const user = await db.select({ isPremium: users.isPremium, premiumUntil: users.premiumUntil }).from(users).where(eq(users.id, userId)).get();
+  if (!user) return c.json({ error: 'Not found' }, 404);
+  const premiumActive = user.isPremium && (!user.premiumUntil || new Date(user.premiumUntil) > new Date());
+  return c.json({ isPremium: premiumActive, premiumUntil: user.premiumUntil });
 });
 
 // ─── ONBOARDING SEED ────────────────────────────────────────────────────────
@@ -201,6 +240,14 @@ app.put('/preferences', authMiddleware, async (c) => {
 app.get('/insights', authMiddleware, async (c) => {
   const db = drizzle(c.env.DB);
   const userId = c.get('userId');
+
+  // Premium-only feature
+  const user = await db.select({ isPremium: users.isPremium, premiumUntil: users.premiumUntil }).from(users).where(eq(users.id, userId)).get();
+  const premiumActive = user?.isPremium && (!user.premiumUntil || new Date(user.premiumUntil) > new Date());
+  if (!premiumActive) {
+    return c.json([{ type: 'upgrade', title: 'Unlock Insights', description: 'Upgrade to Pro to see correlations between your habits, spending, and mood.', color: '#00ff88' }]);
+  }
+
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
 
   // Get data for last 30 days
@@ -356,6 +403,17 @@ app.post('/habits', authMiddleware, async (c) => {
   const db = drizzle(c.env.DB);
   const userId = c.get('userId');
   const body = await c.req.json();
+
+  // Free tier: max 5 active habits
+  const user = await db.select({ isPremium: users.isPremium, premiumUntil: users.premiumUntil }).from(users).where(eq(users.id, userId)).get();
+  const premiumActive = user?.isPremium && (!user.premiumUntil || new Date(user.premiumUntil) > new Date());
+  if (!premiumActive) {
+    const activeHabits = await db.select({ id: habits.id }).from(habits).where(and(eq(habits.userId, userId), eq(habits.isActive, true)));
+    if (activeHabits.length >= 5) {
+      return c.json({ error: 'Free plan allows up to 5 habits. Upgrade to Pro for unlimited habits.' }, 403);
+    }
+  }
+
   const id = createId();
   const habit = { id, userId, name: body.name, description: body.description || null, category: body.category || 'Other', frequency: body.frequency || 'daily', targetDays: body.targetDays ? JSON.stringify(body.targetDays) : null, isActive: true };
   await db.insert(habits).values(habit);
@@ -408,6 +466,13 @@ app.post('/habits/:id/freeze', authMiddleware, async (c) => {
   const habitId = c.req.param('id');
   const body = await c.req.json();
   const date = body.date || new Date().toISOString().split('T')[0];
+
+  // Premium-only feature
+  const usr = await db.select({ isPremium: users.isPremium, premiumUntil: users.premiumUntil }).from(users).where(eq(users.id, userId)).get();
+  const premiumActive = usr?.isPremium && (!usr.premiumUntil || new Date(usr.premiumUntil) > new Date());
+  if (!premiumActive) {
+    return c.json({ error: 'Streak freezes are a Pro feature. Upgrade to protect your streaks.' }, 403);
+  }
 
   // Check if freeze already used this week (max 1 per habit per week)
   const habit = await db.select().from(habits).where(and(eq(habits.id, habitId), eq(habits.userId, userId))).get();
@@ -593,11 +658,15 @@ app.get('/dashboard', authMiddleware, async (c) => {
   const totalMonthSpend = monthExpenses.reduce((s, e) => s + e.amount, 0);
   const todaySpend = monthExpenses.filter(e => e.date === today).reduce((s, e) => s + e.amount, 0);
 
+  const premiumActive = user?.isPremium && (!user.premiumUntil || new Date(user.premiumUntil) > new Date());
+
   return c.json({
     habits: { total: allHabits.length, completedToday: todayCompletions.length, list: allHabits, completedIds: todayCompletions.map(c => c.habitId) },
     expenses: { totalMonth: totalMonthSpend, today: todaySpend, recentExpenses: monthExpenses.slice(0, 5) },
     journal: { todayMood: todayJournal?.mood || null, recentEntries },
     onboarded: user?.onboarded ?? true,
+    isPremium: premiumActive ?? false,
+    premiumUntil: user?.premiumUntil ?? null,
   });
 });
 

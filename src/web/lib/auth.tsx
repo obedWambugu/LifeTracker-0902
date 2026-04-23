@@ -5,14 +5,18 @@ interface User {
   id: string;
   email: string;
   name: string;
+  isPremium: boolean;
+  premiumUntil: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  isPremium: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, name: string, password: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -21,13 +25,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const refreshUser = async () => {
+    try {
+      const profile = await api.get('/auth/profile');
+      setUser(profile);
+    } catch {
+      localStorage.removeItem('lt_token');
+      setUser(null);
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('lt_token');
     if (token) {
-      api.get('/auth/profile')
-        .then(setUser)
-        .catch(() => localStorage.removeItem('lt_token'))
-        .finally(() => setLoading(false));
+      refreshUser().finally(() => setLoading(false));
     } else {
       setLoading(false);
     }
@@ -50,8 +61,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const isPremium = !!(user?.isPremium);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, isPremium, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

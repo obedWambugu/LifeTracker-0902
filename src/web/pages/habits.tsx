@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Plus, CheckCircle2, Circle, Trash2, Edit2, X, Flame, BarChart2, Snowflake } from 'lucide-react';
+import { Plus, CheckCircle2, Circle, Trash2, Edit2, X, Flame, BarChart2, Snowflake, Crown } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '../lib/auth';
+import { UpgradeModal } from '../components/UpgradeModal';
 import { format, subDays, eachDayOfInterval } from 'date-fns';
 
 const CATEGORIES = ['Health', 'Productivity', 'Learning', 'Fitness', 'Mindfulness', 'Wellness', 'Other'];
@@ -17,6 +19,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function HabitsPage() {
+  const { isPremium } = useAuth();
   const [habits, setHabits] = useState<any[]>([]);
   const [completions, setCompletions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +28,10 @@ export default function HabitsPage() {
   const [form, setForm] = useState({ name: '', description: '', category: 'Health', frequency: 'daily' });
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showUpgrade, setShowUpgrade] = useState(false);
+
+  const FREE_HABIT_LIMIT = 5;
+  const atLimit = !isPremium && habits.length >= FREE_HABIT_LIMIT;
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -178,7 +185,10 @@ export default function HabitsPage() {
             </button>
           )}
           <button
-            onClick={() => { setShowForm(true); setEditing(null); setForm({ name: '', description: '', category: 'Health', frequency: 'daily' }); }}
+            onClick={() => {
+              if (atLimit) { setShowUpgrade(true); return; }
+              setShowForm(true); setEditing(null); setForm({ name: '', description: '', category: 'Health', frequency: 'daily' });
+            }}
             className="flex items-center gap-2 bg-[#00ff88] text-[#080808] px-4 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#00cc6a] transition-colors"
           >
             <Plus size={15} /> New Habit
@@ -204,6 +214,19 @@ export default function HabitsPage() {
             className="flex items-center gap-2 bg-[#ff4757] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#ee3545] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <Trash2 size={14} /> Delete{selected.size > 0 ? ` (${selected.size})` : ''}
+          </button>
+        </div>
+      )}
+
+      {/* Habit limit banner */}
+      {atLimit && (
+        <div className="flex items-center justify-between bg-[#111] border border-[#00ff88]/20 rounded-xl px-4 py-3 mb-4 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <Crown size={16} className="text-[#00ff88]" />
+            <p className="text-[#888] text-sm">You've reached the free limit of <span className="text-white font-semibold">{FREE_HABIT_LIMIT} habits</span></p>
+          </div>
+          <button onClick={() => setShowUpgrade(true)} className="bg-[#00ff88] text-[#080808] px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#00cc6a] transition-colors flex-shrink-0">
+            Upgrade
           </button>
         </div>
       )}
@@ -319,9 +342,9 @@ export default function HabitsPage() {
                     {/* Freeze button - only show if not completed and not already frozen today */}
                     {!done && (
                       <button
-                        onClick={() => freezeHabit(habit.id)}
-                        title="Use streak freeze"
-                        className="text-[#70a1ff]/50 hover:text-[#70a1ff] transition-colors p-1"
+                        onClick={() => isPremium ? freezeHabit(habit.id) : setShowUpgrade(true)}
+                        title={isPremium ? "Use streak freeze" : "Pro feature: Streak freeze"}
+                        className={`transition-colors p-1 ${isPremium ? 'text-[#70a1ff]/50 hover:text-[#70a1ff]' : 'text-[#444] hover:text-[#666]'}`}
                       >
                         <Snowflake size={14} />
                       </button>
@@ -381,6 +404,8 @@ export default function HabitsPage() {
           </div>
         </div>
       )}
+
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
     </div>
   );
 }

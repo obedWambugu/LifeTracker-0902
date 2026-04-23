@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
-import { User, Shield, Download, LogOut, Bell, Snowflake, Mail } from 'lucide-react';
+import { User, Shield, Download, LogOut, Bell, Snowflake, Mail, Crown, Phone, Check, Zap, BarChart2, Sparkles, Infinity } from 'lucide-react';
 import { toast } from 'sonner';
+import { PremiumBadge } from '../components/UpgradeModal';
 
 export default function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, isPremium } = useAuth();
   const [name, setName] = useState(user?.name || '');
   const [saving, setSaving] = useState(false);
   const [prefs, setPrefs] = useState<any>(null);
@@ -93,6 +94,107 @@ export default function SettingsPage() {
           </form>
         </div>
 
+        {/* Subscription */}
+        <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-[#00ff88]/10 rounded-xl flex items-center justify-center">
+              <Crown size={18} className="text-[#00ff88]" />
+            </div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-white font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Subscription</h2>
+              {isPremium && <PremiumBadge />}
+            </div>
+          </div>
+
+          {isPremium ? (
+            <div>
+              <div className="bg-gradient-to-br from-[#00ff88]/5 to-[#5352ed]/5 border border-[#00ff88]/20 rounded-xl p-5 mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Crown size={16} className="text-[#00ff88]" />
+                  <p className="text-white font-semibold">Life Tracker Pro</p>
+                </div>
+                <p className="text-[#888] text-sm">You have full access to all premium features.</p>
+                {user?.premiumUntil && (
+                  <p className="text-[#555] text-xs mt-2">Active until {new Date(user.premiumUntil).toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { icon: <Infinity size={14} />, label: 'Unlimited habits' },
+                  { icon: <BarChart2 size={14} />, label: 'Insights & analytics' },
+                  { icon: <Sparkles size={14} />, label: 'Journal prompts' },
+                  { icon: <Snowflake size={14} />, label: 'Streak freezes' },
+                ].map(f => (
+                  <div key={f.label} className="flex items-center gap-2 text-[#888] text-xs">
+                    <Check size={12} className="text-[#00ff88]" /> {f.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-5 mb-4">
+                <p className="text-[#888] text-sm mb-1">Current plan</p>
+                <p className="text-white text-lg font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Free</p>
+                <p className="text-[#555] text-xs mt-1">5 habits max · No insights · No prompts · No streak freezes</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-[#00ff88]/5 to-[#5352ed]/5 border border-[#00ff88]/20 rounded-xl p-5 mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-white font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>Upgrade to Pro</p>
+                    <div className="flex items-baseline gap-1 mt-1">
+                      <span className="text-2xl font-bold text-[#00ff88]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>KES 149</span>
+                      <span className="text-[#555] text-xs">/month</span>
+                    </div>
+                  </div>
+                  <Crown size={28} className="text-[#00ff88]/30" />
+                </div>
+
+                <div className="space-y-2 mb-4">
+                  {[
+                    { icon: <Infinity size={13} />, label: 'Unlimited habits' },
+                    { icon: <BarChart2 size={13} />, label: 'Correlation insights' },
+                    { icon: <Sparkles size={13} />, label: 'Journal prompts library' },
+                    { icon: <Snowflake size={13} />, label: 'Streak freezes' },
+                    { icon: <Zap size={13} />, label: 'Advanced analytics' },
+                  ].map(f => (
+                    <div key={f.label} className="flex items-center gap-2 text-sm">
+                      <span className="text-[#00ff88]">{f.icon}</span>
+                      <span className="text-[#ccc]">{f.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="bg-[#080808] border border-[#1a1a1a] rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Phone size={14} className="text-[#00ff88]" />
+                    <p className="text-white text-sm font-semibold">Pay via M-Pesa</p>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-[#555]">Paybill Number</span>
+                      <span className="text-white font-mono">247247</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#555]">Account Number</span>
+                      <span className="text-white font-mono text-xs">{user?.email}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#555]">Amount</span>
+                      <span className="text-[#00ff88] font-mono font-bold">KES 149</span>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-[#444] text-xs text-center mt-3">
+                  After payment, your account will be upgraded within 24 hours.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Reminders & Notifications */}
         <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-6">
           <div className="flex items-center gap-3 mb-6">
@@ -155,7 +257,12 @@ export default function SettingsPage() {
         </div>
 
         {/* Streak Freeze Settings */}
-        <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-6">
+        <div className={`bg-[#111] border rounded-xl p-6 relative ${isPremium ? 'border-[#1f1f1f]' : 'border-[#1f1f1f] opacity-60'}`}>
+          {!isPremium && (
+            <div className="absolute top-4 right-4">
+              <PremiumBadge small />
+            </div>
+          )}
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-[#70a1ff]/10 rounded-xl flex items-center justify-center">
               <Snowflake size={18} className="text-[#70a1ff]" />
@@ -174,7 +281,7 @@ export default function SettingsPage() {
               {[1, 2, 3].map(n => (
                 <button
                   key={n}
-                  onClick={() => updatePref('streakFreezePerWeek', n)}
+                  onClick={() => isPremium ? updatePref('streakFreezePerWeek', n) : toast.info('Upgrade to Pro to use streak freezes')}
                   className={`w-10 h-10 rounded-lg text-sm font-medium transition-all ${
                     prefs?.streakFreezePerWeek === n
                       ? 'bg-[#70a1ff] text-white'
